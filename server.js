@@ -4,7 +4,7 @@ let cookieParser = require('cookie-parser');
 
 app.use(cookieParser());
 app.get('/', (req, res) => {
-    res.sendFile('login.html', {root: __dirname})
+    res.sendFile('register.html', {root: __dirname})
 });
 app.get('/register', (req, res) => {
     if(req.query.username && req.query.password) {
