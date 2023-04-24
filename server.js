@@ -4,6 +4,8 @@ let mongoose = require('mongoose');
 var crypto = require('crypto');
 mongoose.connect('mongodb://127.0.0.1:27017/prod');
 app.use(express.urlencoded({extended: true}));
+app.set('views', __dirname + '/views');
+app.set('view engine', 'ejs');
 let cookieParser = require('cookie-parser');
 const userSchema = new mongoose.Schema(
     {userId: {type: String, required: true},
@@ -21,12 +23,20 @@ const userSchema = new mongoose.Schema(
 const User = mongoose.model('User', userSchema);
 app.use(cookieParser());
 app.get('/', (req, res) => {
-    res.sendFile('register.html', {root: __dirname})
+    res.redirect('/register');
 });
 app.get('/register', (req, res) => {
-    res.sendFile('register.html', {root: __dirname})
+    if(req.cookies.session !== undefined) {
+        res.redirect('/home');
+        return;
+    }
+    res.render('register',{});
 });
 app.post('/register', async (req, res) => {
+    if(req.body.password !== req.body.confirmPassword) {
+        res.render('register', {error: 'Passwords do not match'});
+        return;
+    }
     crypto.generateKey('aes', {length: 128}, (err, key) => {
         if (err) throw err;
         console.log('key' + key.export().toString('hex'));
@@ -46,7 +56,11 @@ app.post('/register', async (req, res) => {
     })
 });
 app.get('/login', (req, res) => {
-    res.sendFile('login.html', {root: __dirname});
+    if(req.cookies.session !== undefined) {
+        res.redirect('/home');
+        return;
+    }
+    res.render('login',{error: ''});
 });
 app.post('/login', (req, res) => {
     let userName = req.body.username;
@@ -57,7 +71,7 @@ app.post('/login', (req, res) => {
             res.redirect('/home');
         }
         else{
-            res.redirect('/login');
+            res.render('login', {error: 'Invalid username or password'});
         }
     });
 });
@@ -68,7 +82,7 @@ app.get('/home', (req, res) => {
     else{
         User.findOne().bySession(req.cookies.session).then((user) => {
             if(user.length > 0) {
-                res.send('Welcome ' + user[0].userName);
+                res.render('home', {userName: user[0].userName});
             }
             else{
                 res.redirect('/login');
@@ -76,7 +90,10 @@ app.get('/home', (req, res) => {
         });
     }
 });
-
+app.get('/logout', (req, res) => {
+    res.clearCookie('session');
+    res.redirect('/login');
+});
 app.listen(3000, () => {
 
 });

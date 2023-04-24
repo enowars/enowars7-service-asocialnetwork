@@ -2,17 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Register</title>
+    <title>Login</title>
 </head>
 <body>
-    <form action="register" method="post" name="register-form">
+    <h1>Login</h1>
+    <% if (locals.error) { %>
+        <div class="error" style="color: red"> <%= error %> </div>
+    <% } %>
+    <form action="login" method="post" name="login-form">
         <label for="username">Username</label>
         <input type="text" name="username" id="username"><br>
         <label for="password">Password</label>
         <input type="password" name="password" id="password"><br>
-        <label for="confirm-password">Confirm Password</label>
-        <input type="password" name="confirm-password" id="confirm-password"><br>
-        <input type="submit" value="Register">
+        <input type="submit" value="Login">
     </form>
 </body>
 </html>
