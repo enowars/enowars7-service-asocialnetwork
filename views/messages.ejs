@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Messages</title>
+</head>
+<body>
+<h1>Messages</h1>
+<ul>
+    <% messages.forEach(messageList => { %>
+        <li>
+            <strong><%= messageList.partner %></strong>
+            <div>
+            <%messageList.messages.forEach(message=> { %>
+                <div>
+                    <% if(message.sender === userName){%>
+                        <div><%= message.message %>
+                            <%= message.createdAt%></div>
+                    <%}else{%>
+                        <div style="text-align: right"><%= message.message%>
+                            <%= message.createdAt%></div>
+                    <%}%>
+
+                </div>
+            <% }) %>
+            </div>
+        </li>
+    <% }); %>
+</ul>
+<% if (locals.error) { %>
+    <div class="error" style="color: red"> <%= error %> </div>
+<% } %>
+<form method="post" action="/messages">
+    <label for="recipient">Recipient</label>
+    <input type="text" name="recipient" id="recipient" required><br>
+    <label for="message">Message
+        <textarea name="message"></textarea>
+    </label>
+    <button type="submit">Send</button>
+</form>
+</body>
+</html>
