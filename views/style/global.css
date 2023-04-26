@@ -1,0 +1,17 @@
+/* Global styles */
+html{
+    height: 100%;
+}
+body {
+    font-family: Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    padding: 0;
+    margin: 0;
+    height: 100%;
+}
+main{
+    padding: 10px;
+    background-color: #f2f2f2;
+    height: 100%;
+}

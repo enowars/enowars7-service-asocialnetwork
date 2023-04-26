@@ -3,19 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <title>Register</title>
+    <link rel="stylesheet" href="style/register.css">
+    <link rel="stylesheet" href="style/global.css">
+    <link rel="stylesheet" href="style/nav.css">
 </head>
 <body>
-    <% if (locals.error) { %>
-        <div class="error" style="color: red"> <%= error %> </div>
-    <% } %>
-    <form action="register" method="post" name="register-form">
-        <label for="username">Username</label>
-        <input type="text" name="username" id="username"><br>
-        <label for="password">Password</label>
-        <input type="password" name="password" id="password"><br>
-        <label for="confirmPassword">Confirm Password</label>
-        <input type="password" name="confirmPassword" id="confirmPassword"><br>
-        <input type="submit" value="Register">
-    </form>
+    <nav>
+        <div >Icon/Name</div>
+        <ul>
+            <li> <a href="/">Home</a></li>
+            <li> <a href="/profile">Profile</a></li>
+            <li> <a href="/messages">Messages</a></li>
+            <li> <a href="/login">Login</a></li>
+        </ul>
+    </nav>
+    <main>
+        <% if (locals.error) { %>
+            <div class="error"> <%= error %> </div>
+        <% } %>
+        <form action="register" method="post" name="register-form">
+            <label for="username">Username</label>
+            <input type="text" name="username" id="username" required><br>
+            <label for="password">Password</label>
+            <input type="password" name="password" id="password" required><br>
+            <label for="confirmPassword">Confirm Password</label>
+            <input type="password" name="confirmPassword" id="confirmPassword" required><br>
+            <input type="submit" value="Register">
+        </form>
+    </main>
 </body>
 </html>

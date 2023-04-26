@@ -3,18 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <title>Login</title>
+    <link rel="stylesheet" href="style/login.css">
+    <link rel="stylesheet" href="style/global.css">
+    <link rel="stylesheet" href="style/nav.css">
 </head>
 <body>
-    <h1>Login</h1>
-    <% if (locals.error) { %>
-        <div class="error" style="color: red"> <%= error %> </div>
-    <% } %>
-    <form action="login" method="post" name="login-form">
-        <label for="username">Username</label>
-        <input type="text" name="username" id="username"><br>
-        <label for="password">Password</label>
-        <input type="password" name="password" id="password"><br>
-        <input type="submit" value="Login">
-    </form>
+    <nav>
+        <div >Icon/Name</div>
+        <ul>
+            <li> <a href="/">Home</a></li>
+            <li> <a href="/profile">Profile</a></li>
+            <li> <a href="/messages">Messages</a></li>
+            <li> <a href="/register">Register</a></li>
+        </ul>
+    </nav>
+    <main>
+        <% if (locals.error) { %>
+            <div class="error" style="color: red"> <%= error %> </div>
+        <% } %>
+        <form action="login" method="post" name="login-form">
+            <label for="username">Username</label>
+            <input type="text" name="username" id="username"><br>
+            <label for="password">Password</label>
+            <input type="password" name="password" id="password"><br>
+            <input type="submit" value="Login">
+        </form>
+    </main>
 </body>
 </html>
