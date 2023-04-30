@@ -24,6 +24,24 @@ li {
     margin-bottom: 1rem;
 }
 
+.message-input {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    display: block;
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    width: 100%;
+    background-color: azure;
+}
+.avatar {
+    border-radius: 50%;
+    height: 100px;
+    width: 100px;
+    object-fit: cover;
+    object-position: center;
+    margin-right: 1rem;
+}
 .message {
     border-radius: 10px;
     display: block;

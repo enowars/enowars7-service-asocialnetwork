@@ -8,35 +8,64 @@ app.set('views', __dirname + '/views');
 app.set('view engine', 'ejs');
 let cookieParser = require('cookie-parser');
 const User = require('./models/user');
+const Message = require('./models/message');
+const Profile = require('./models/profile');
 const messageRouter = require('./routers/messageRouter');
+const profileRouter = require('./routers/profileRouter');
 app.use(cookieParser());
-app.use('/messages', messageRouter);
-app.get('/', (req, res) => {
-    res.redirect('/register');
+app.use(async (req, res, next) => {
+    if(req.method === 'POST' && (req.url === '/register' || req.url === '/login')) {
+        next();
+        return;
+    }
+    if(req.cookies.session !== undefined) {
+        let user = await User.findOne().bySession(req.cookies.session);
+        if(user.length === 0) {
+            res.redirect('/register');
+            return;
+        }
+        req.user = user[0];
+    }
+    next();
 });
-app.get('/register', (req, res) => {
+app.use('/messages', messageRouter);
+app.use('/profile', profileRouter);
+app.get('/', (req, res) => {
+    res.redirect('/home');
+});
+app.get('/register', (req, res, next) => {
     if(req.cookies.session !== undefined) {
         res.redirect('/home');
         return;
     }
-    res.render('register',{});
+    res.page = 'register';
+    res.params = {};
+    next();
 });
-app.post('/register', async (req, res) => {
+app.post('/register', async (req, res, next) => {
     if(req.body.username === '' || req.body.password === '' || req.body.confirmPassword === '') {
-        res.render('register', {error: 'Please fill in all fields'});
+        res.page = 'register';
+        res.params = {error: 'Please fill in all fields'};
+        next();
         return;
     }
     if(req.body.username.length > 100 || req.body.password.length > 100 || req.body.confirmPassword.length > 100) {
-        res.render('register', {error: 'Username and password must be less than 100 characters'});
+        res.page = 'register';
+        res.params = {error: 'Username and password must be less than 100 characters'};
+        next();
         return;
     }
     let user = await User.findOne().byUserName(req.body.username);
     if(user.length > 0) {
-        res.render('register', {error: 'Username already exists'});
+        res.page = 'register';
+        res.params = {error: 'Username already exists'};
+        next();
         return;
     }
     if(req.body.password !== req.body.confirmPassword) {
-        res.render('register', {error: 'Passwords do not match'});
+        res.page = 'register';
+        res.params = {error: 'Passwords do not match'};
+        next();
         return;
     }
     let sessionId = await generateSessionId();
@@ -68,48 +97,67 @@ async function generateSessionId() {
 function hash(password){
     return crypto.createHash('md5').update(password).digest();
 }
-app.get('/login', (req, res) => {
+app.get('/login', (req, res, next) => {
     if(req.cookies.session !== undefined) {
         res.redirect('/home');
         return;
     }
-    res.render('login',{error: ''});
+    res.page = 'login';
+    res.params = {};
+    next();
 });
-app.post('/login', async (req, res) => {
+app.post('/login', async (req, res, next) => {
     let userName = req.body.username;
     let password = req.body.password;
     let newSessionId = await generateSessionId();
     let user = await User.findOneAndUpdate({userName: userName, password: hash(password)}, {sessionId: newSessionId}, {new: true});
     if(user) {
+        let profile = await Profile.find({user: user._id});
+        if(!profile[0]) {
+            profile = new Profile({image: Math.floor(Math.random() * 50) + 1, user: user._id});
+            await profile.save();
+        }
         res.clearCookie('session');
         res.cookie('session', user.sessionId, {maxAge: 900000, httpOnly: true});
         res.redirect('/home');
     }
     else{
-        res.render('login', {error: 'Invalid username or password'});
+        res.page = 'login';
+        res.params = {error: 'Invalid username or password'};
+        next();
     }
 });
-app.get('/home', (req, res) => {
+app.get('/home', async (req, res, next) => {
     if(req.cookies.session === undefined) {
-        res.redirect('/register');
+        res.redirect('/login');
+        return;
     }
-    else{
-        User.findOne().bySession(req.cookies.session).then((user) => {
-            if(user.length > 0) {
-                res.render('home', {userName: user[0].userName});
-            }
-            else{
-                res.redirect('/login');
-            }
-        });
-    }
+    res.page = 'home';
+    let profile = await Profile.find({user: req.user._id});
+    res.params = {userPic: profile[0].image};
+    next();
 });
 app.get('/logout', (req, res) => {
     res.clearCookie('session');
     res.redirect('/login');
 });
+app.get('/assets/profile-pics/:picture', (req, res) => {
+    res.sendFile(__dirname + '/assets/profile-pics/' + req.params.picture);
+});
+
 app.get('/style/:styleName', (req, res) => {
     res.sendFile(__dirname + '/views/style/' + req.params.styleName);
+});
+app.use((req, res, next) => {
+    if(!res.page){
+        next();
+    }
+    else{
+        if(req.user){
+            res.params.userName = req.user.userName;
+        }
+        res.render(res.page, res.params);
+    }
 });
 app.listen(3000, () => {
 
