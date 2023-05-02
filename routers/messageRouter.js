@@ -50,15 +50,16 @@ async function getPartners(user){
         index === self.findIndex(p => p.name === partner.name)
     );
 }
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
    if(req.body.message === '') {
-       res.render('messages', {userName: await getUserNameById(req.user._id), new: true, partners: req.partners, messages: false, error: 'Please enter a message'});
+       res.render('messages', {userName: await getUserNameById(req.user._id), new: true, partners: req.partners, messages: false, error: 'Message cannot be empty'});
        return;
    }
    let recipient = (await User.findOne().byUserName(req.body.recipient))[0];
    if(!recipient) {
+
        res.render('messages', {userName: await getUserNameById(req.user._id), new: true, partners: req.partners, messages: false, error: 'Recipient does not exist'});
-        return;
+       return;
    }
    if(req.user.userName === recipient.userName) {
        res.render('messages', {userName: await getUserNameById(req.user._id), new: true, partners: req.partners, messages: false, error: 'You cannot send a message to yourself'});
@@ -70,27 +71,22 @@ router.post('/', async (req, res) => {
         message: req.body.message
     });
     message.save().then(async () => {
-       let messages = await getMessages(req.user);
        req.partners = await getPartners(req.user);
-       res.render('messages', {userName: await getUserNameById(req.user._id), new: false, partners: req.partners, messages: messages, partner: recipient.userName});
+       res.params = {new: false, partner: recipient.userName};
+       next();
     });
 });
 async function getUserNameById(userId) {
     return (await User.findById(userId)).userName;
 }
-router.get('/', async (req, res) => {
-    let messages = await getMessages(req.user);
-    res.render('messages', {userName: await getUserNameById(req.user._id), new: true, partners: req.partners, messages: messages});
-    // await displayMessages(user, partner, {});
+router.get('/', async (req, res, next) => {
+     res.params = {new: true};
+     next();
 });
-// router.get('/:partner', async (req, res) => {
-//     let partner = (await User.findOne().byUserName(req.params.partner))[0];
-//     if(!partner) {
-//         res.render('messages', {userName: await getUserNameById(req.user._id), new: true, partners: req.partners, messages: false, error: 'Recipient does not exist'});
-//         return;
-//     }
-//     let messages = await getMessages(req.user, partner._id, {});
-//     res.render('messages', {userName: await getUserNameById(req.user._id), new: false, partners: req.partners, messages: messages, partner: req.params.partner});
-//     // res.send(await displayMessages(await User.findOne().bySession(req.cookies.session), req.params.partner, {}));
-// });
+router.use( async (req, res, next) => {
+    let messages = await getMessages(req.user);
+    res.page = 'messages';
+    res.params = {... res.params, partners: req.partners, messages: messages, userName: await getUserNameById(req.user._id)};
+    next();
+});
 module.exports = router;

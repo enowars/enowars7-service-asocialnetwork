@@ -23,17 +23,21 @@
                 </div>
             </div>
             <% if(messages){%>
-                    <div class="message-partner"></div>
+                    <%if(locals.partner){%>
+                        <div class="message-partner" style="display:block"><%=locals.partner%></div>
+                    <%} else {%>
+                        <div class="message-partner"></div>
+                    <%}%>
                     <div class="message-container">
                 <% messages.forEach(message => { %>
                         <div>
                             <% if(message.sender === userName){%>
-                                <div class="message sent" partner="<%=message.recipient%>">
-                                    <%- message.text %>
+                                <div class="message sent" partner="<%=message.recipient%>" <%if(locals.partner && locals.partner === message.recipient){%>style="display:block"<%}%>>
+                                    <%= message.text %>
                                     <%= message.createdAt%></div>
                             <%}else{%>
-                                <div class="message received" partner="<%=message.sender%>">
-                                    <%- message.text%>
+                                <div class="message received" partner="<%=message.sender%>" <%if(locals.partner && locals.partner === message.sender){%>style="display:block"<%}%>>
+                                    <%= message.text%>
                                     <%= message.createdAt%></div>
                             <%}%>
                         </div>
@@ -48,7 +52,11 @@
                     <label id="recipient-label" for="recipient">Recipient</label>
                     <input type="text" name="recipient" id="recipient" required><br>
                 <% } else { %>
-                    <input type="hidden" name="recipient" value="">
+                    <%if(locals.partner){%>
+                        <input type="hidden" name="recipient" value="<%=locals.partner%>">
+                    <%} else {%>
+                        <input type="hidden" name="recipient" value="">
+                    <%}%>
                 <% } %>
                 <label for="message">Message</label>
                 <input type="text" name="message" id="message" class="message-input" required>
