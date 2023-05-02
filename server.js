@@ -1,6 +1,7 @@
 let express = require('express');
 let app = express();
 let mongoose = require('mongoose');
+let ejs = require('ejs');
 let crypto = require('crypto');
 mongoose.connect('mongodb://127.0.0.1:27017/prod');
 app.use(express.urlencoded({extended: true}));
@@ -76,11 +77,14 @@ app.post('/register', async (req, res, next) => {
         userName: userName,
         password: hash(password)
     });
+    let profile= new Profile({image: Math.floor(Math.random() * 50) + 1, user: user._id});
+    await profile.save();
     user.save().then(() => {
         res.clearCookie('session');
         res.cookie('session', sessionId, {maxAge: 900000, httpOnly: true});
         res.redirect('/home');
     });
+
 });
 async function generateSessionId() {
     return new Promise((resolve, reject) => {
@@ -138,6 +142,7 @@ app.get('/home', async (req, res, next) => {
     next();
 });
 app.get('/logout', (req, res) => {
+    ejs.clearCache();
     res.clearCookie('session');
     res.redirect('/login');
 });

@@ -8,15 +8,13 @@
             <li class="nav-item">
                 <a class="nav-link" href="/">Home</a>
             </li>
-            <li class="nav-item">
-                <a class="nav-link" href="/profile/"> Profile </a>
-            </li>
-            <li class="nav-item">
-                <% if (locals.userName) { %>
-                    <a class="nav-link" href="/messages">Messages</a>
-                <% } %>
-            </li>
             <% if (locals.userName) { %>
+                <li class="nav-item">
+                    <a class="nav-link" href="/profile/"> Profile </a>
+                </li>
+                <li class="nav-item">
+                        <a class="nav-link" href="/messages">Messages</a>
+                </li>
                 <li class="nav-item">
                     <a class="nav-link" href="/logout">Logout</a>
                 </li>
