@@ -45,7 +45,7 @@ li {
 }
 .message {
     border-radius: 10px;
-    display: none;
+    display: block;
     padding: 0.5rem 1rem;
     margin-bottom: 0.5rem;
     max-width: 70%;

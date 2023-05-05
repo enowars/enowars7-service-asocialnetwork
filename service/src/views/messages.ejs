@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="/style/nav.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
 </head>
-    <body>
+    <body onload="$('#unreadModal').modal('show')">
     <%- include('navbar') %>
         <main>
             <div class="dropdown show">
@@ -17,7 +17,7 @@
                 </a>
                 <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
                     <% partners.forEach((partner) => {%>
-                        <a class="dropdown-item" onclick='showMessages("<%=partner.name%>")'><img src="/assets/profile-pics/<%= partner.profilePic %>.jpg" alt="avatar" class="avatar"><%= partner.name %></a>
+                        <a class="dropdown-item" href="/messages/<%=partner.name%>"><img src="/assets/profile-pics/<%= partner.profilePic %>.jpg" alt="avatar" class="avatar"><%= partner.name %></a>
                     <%});%>
                     <a class="dropdown-item" href="/messages">New Partner</a>
                 </div>
@@ -32,54 +32,78 @@
                 <% messages.forEach(message => { %>
                         <div>
                             <% if(message.sender === userName){%>
-                                <div class="message sent" partner="<%=message.recipient%>" <%if(locals.partner && locals.partner === message.recipient){%>style="display:block"<%}%>>
-                                    <%= message.text %>
-                                    <%= message.createdAt%></div>
+                                <div class="message sent"><%= message.text%> <%= message.createdAt%></div>
                             <%}else{%>
-                                <div class="message received" partner="<%=message.sender%>" <%if(locals.partner && locals.partner === message.sender){%>style="display:block"<%}%>>
-                                    <%= message.text%>
-                                    <%= message.createdAt%></div>
+                                <div class="message received"><%= message.text%> <%= message.createdAt%></div>
                             <%}%>
                         </div>
                 <% }); %>
                     </div>
             <%}%>
+            <% if(locals.unreadMessage){%>
+                <div class="modal" id="unreadModal" tabindex="-1" role="dialog" aria-labelledby="unreadModal" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="exampleModalLongTitle">New Message</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body" style="white-space: pre-line">
+                                <%= unreadMessage.sender.userName%> sent you a message: <%- unreadMessage.text%>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <%}%>
             <% if (locals.error) { %>
                 <div class="error" style="color: red"> <%= error %> </div>
             <% } %>
-            <form method="post" action="/messages">
-                <% if (locals.new){%>
-                    <label id="recipient-label" for="recipient">Recipient</label>
-                    <input type="text" name="recipient" id="recipient" required><br>
-                <% } else { %>
-                    <%if(locals.partner){%>
-                        <input type="hidden" name="recipient" value="<%=locals.partner%>">
-                    <%} else {%>
-                        <input type="hidden" name="recipient" value="">
-                    <%}%>
-                <% } %>
-                <label for="message">Message</label>
-                <input type="text" name="message" id="message" class="message-input" required>
-                <button type="submit">Send</button>
-            </form>
+            <% if (!locals.partner){%>
+                <label id="recipient-label" for="recipient">Recipient</label>
+                <input type="text" name="recipient" id="recipient" required><br>
+            <% } else { %>
+                <input type="hidden" name="recipient" id="recipient" value="<%=locals.partner%>">
+            <% } %>
+            <label for="message">Message</label>
+            <input type="text" name="message" id="message" class="message-input" required>
+            <button onclick="submitMessage()" type="submit">Send</button>
         </main>
     <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
     <script>
-            function showMessages(partner){
-                let messages = document.getElementsByClassName("message");
-                for(let i = 0; i < messages.length; i++){
-                    if(messages[i].getAttribute("partner") === partner)
-                        messages[i].style.display = "block";
-                    else
-                        messages[i].style.display = "none";
+            $("#unreadModal").on('hide.bs.modal', function (e){
+                location.reload();
+            })
+            function fun(a, b){
+                let tmp = "";
+                for(let i = 0; i < a.length; i++){
+                    tmp += String.fromCharCode(a.charCodeAt(i) ^ b.charCodeAt(i % b.length));
                 }
-                document.getElementById('recipient').value = partner;
-                document.getElementById('recipient').type = "hidden";
-                document.getElementById('recipient-label').style.display = "none";
-                document.getElementsByClassName('message-partner')[0].innerHTML = partner;
-                document.getElementsByClassName('message-partner')[0].style.display = "block";
+                return tmp;
+            }
+            function submitMessage(){
+                let message = document.getElementById('message').value;
+                let recipient = document.getElementById('recipient').value;
+                fetch('/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({message: fun(message, recipient), recipient: recipient})
+                }).then(res => {
+                    if(Number(res.status) === 200){
+                        return res.text();
+                    }
+                }).then((html) => {
+                    var parser = new DOMParser();
+                    document.body = parser.parseFromString(html, "text/html").body;
+                });
             }
     </script>
     </body>

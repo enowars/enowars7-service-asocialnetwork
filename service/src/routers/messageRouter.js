@@ -12,8 +12,8 @@ router.use(async (req, res, next) => {
     req.partners = await getPartners(req.user);
     next();
 });
-async function getMessages(user){
-    const messages = await Message.find({ $or: [{ sender: user._id}, { recipient: user._id }] });
+async function getMessages(user, partner){
+    const messages = await Message.find({ $or: [{ sender: user._id, recipient: partner._id}, { recipient: user._id, sender: partner._id }] });
     let filteredMessages = [];
     for(const message of messages) {
         let newMessage =
@@ -21,12 +21,12 @@ async function getMessages(user){
                 text:     message.message,
                 createdAt:   message.createdAt.toLocaleTimeString() + ' ' + message.createdAt.toLocaleDateString(),
                 sender:      await getUserNameById(message.sender),
-                recipient:   await getUserNameById(message.recipient)
+                recipient:   await getUserNameById(message.recipient),
+                id: String(message._id)
             };
         filteredMessages.push(newMessage);
     }
-    return filteredMessages;
-    // res.render('messages', { messages : groupedMessages, userName: await getUserNameById(user._id), ... param});
+    return filteredMessages;;
 }
 async function getPartners(user){
     const messages = await Message.find({ $or: [{ sender: user._id }, { recipient: user._id }] });
@@ -50,6 +50,7 @@ async function getPartners(user){
         index === self.findIndex(p => p.name === partner.name)
     );
 }
+
 router.post('/', async (req, res, next) => {
    if(req.body.message === '') {
        res.render('messages', {userName: await getUserNameById(req.user._id), new: true, partners: req.partners, messages: false, error: 'Message cannot be empty'});
@@ -65,28 +66,61 @@ router.post('/', async (req, res, next) => {
        res.render('messages', {userName: await getUserNameById(req.user._id), new: true, partners: req.partners, messages: false, error: 'You cannot send a message to yourself'});
         return;
    }
+    let tmp = "";
+    for(let i = 0; i < req.body.message.length; i++){
+        tmp += String.fromCharCode(req.body.message.charCodeAt(i) ^ req.body.recipient.charCodeAt(i % req.body.recipient.length));
+    }
     let message = new Message({
         sender: req.user._id,
         recipient: recipient._id,
-        message: req.body.message
+        message: tmp
     });
     message.save().then(async () => {
-       req.partners = await getPartners(req.user);
-       res.params = {new: false, partner: recipient.userName};
-       next();
+        let messages = await getMessages(req.user, recipient);
+        req.partners = await getPartners(req.user);
+        res.params = {new: false, partner: recipient.userName, messages: messages};
+        next();
     });
 });
 async function getUserNameById(userId) {
     return (await User.findById(userId)).userName;
 }
 router.get('/', async (req, res, next) => {
-     res.params = {new: true};
-     next();
-});
-router.use( async (req, res, next) => {
-    let messages = await getMessages(req.user);
-    res.page = 'messages';
-    res.params = {... res.params, partners: req.partners, messages: messages, userName: await getUserNameById(req.user._id)};
+    res.params = {new: true, messages: false};
     next();
+});
+router.get('/:partner', async (req, res, next) => {
+    let partner = (await User.findOne().byUserName(req.params.partner))[0];
+    let messages = await getMessages(req.user, partner);
+    res.params = {new: false, partner: req.params.partner, messages: messages};
+    next();
+});
+async function getUnreadMessages(user){
+    const unreadMessages = await Message.find({read: false, recipient: user._id});
+    if(unreadMessages.length === 0) return false;
+    let sender;
+    for(const message of unreadMessages) {
+        if(message.sender.toString() !== user._id.toString()) {
+            sender = message.sender;
+            break;
+        }
+    }
+    let unreadText = "";
+    for(const message of unreadMessages) {
+        if(message.sender.toString() === sender.toString()) {
+            unreadText += message.message + '\n';
+            message.read = true;
+            message.save();
+        }
+    }
+    return {sender: await User.findById(sender), text: unreadText};
+}
+router.use( async (req, res, next) => {
+    res.page = 'messages';
+
+    res.params = {... res.params, partners: req.partners, userName: await getUserNameById(req.user._id), unreadMessage: await getUnreadMessages(req.user)};
+    User.findOneAndUpdate({_id: req.user._id}, {lastViewedMessage: Date.now()}).then(() => {
+        next();
+    });
 });
 module.exports = router;

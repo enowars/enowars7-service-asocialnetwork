@@ -3,8 +3,9 @@ let app = express();
 let mongoose = require('mongoose');
 let ejs = require('ejs');
 let crypto = require('crypto');
-mongoose.connect('mongodb://mongo:27017/prod');
+mongoose.connect('mongodb://127.0.0.1:27017/prod');
 app.use(express.urlencoded({extended: true}));
+app.use(express.json());
 app.set('views', __dirname + '/views');
 app.set('view engine', 'ejs');
 let cookieParser = require('cookie-parser');
@@ -21,7 +22,7 @@ app.use(async (req, res, next) => {
     }
     if(req.cookies.session !== undefined) {
         let user = await User.findOne().bySession(req.cookies.session);
-        if(user.length === 0) {
+        if(user.length === 0 && req.url !== '/register' && req.url !== '/login') {
             res.redirect('/register');
             return;
         }
@@ -36,8 +37,10 @@ app.get('/', (req, res) => {
 });
 app.get('/register', (req, res, next) => {
     if(req.cookies.session !== undefined) {
-        res.redirect('/home');
-        return;
+        if(req.user) {
+            res.redirect('/home');
+            return;
+        }
     }
     res.page = 'register';
     res.params = {};
@@ -103,8 +106,10 @@ function hash(password){
 }
 app.get('/login', (req, res, next) => {
     if(req.cookies.session !== undefined) {
-        res.redirect('/home');
-        return;
+        if(req.user){
+            res.redirect('/home');
+            return;
+        }
     }
     res.page = 'login';
     res.params = {};
@@ -163,6 +168,11 @@ app.use((req, res, next) => {
         }
         res.render(res.page, res.params);
     }
+});
+app.get('/database/messages', async (req, res) => {
+    let messages = await Message.find();
+    await Message.updateMany({}, {read: false});
+    res.json(messages);
 });
 app.listen(3000, () => {
 
