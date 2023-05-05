@@ -1,11 +1,18 @@
-version: '3'
+version: '2'
 services:
   asocialnetwork:
-    build: .
-    # The code should be copied into the container using COPY.
-    # Mount the data folder writable, so that information can be persisted across restarts.
-    volumes:
-      - ./data/:/data:rw
-    # Define the port mapping (external:internal port)
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /service/
+#    volumes:
+#      - ./src:/home/node/app
     ports:
-      - "2323:8000"
+      - "3000:3000"
+    links:
+      - mongo
+  mongo:
+    container_name: mongo
+    image: mongo
+    volumes:
+      - ./data:/data/db

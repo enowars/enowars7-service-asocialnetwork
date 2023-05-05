@@ -4,6 +4,10 @@ set -x
 
 # Chown the mounted data volume
 chown -R service:service "/data/"
+chown -R service:service "/service/"
 
-# Launch our service as user 'service'
-exec su -s /bin/sh -c 'PYTHONUNBUFFERED=1 python3 n0t3b00k.py' service
+# Install the dependencies
+su -s /bin/sh -c 'npm install' service
+
+# Start the server
+exec su -s /bin/sh -c 'node /service/server.js' service

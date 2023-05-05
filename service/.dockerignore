@@ -6,3 +6,4 @@ docker-compose.yml
 .dockerignore
 .gitignore
 .env
+src/node_modules/
