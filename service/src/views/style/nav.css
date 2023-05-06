@@ -2,9 +2,10 @@ nav {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: #333;
-    color: #fff;
+    background-color: #39FF14;
+    /*color: #fff;*/
     padding: 0.5rem;
+    font-family: "Comic Sans MS", "Comic Sans", cursive;
 }
 
 .nav-icon {
@@ -13,7 +14,7 @@ nav {
 }
 
 nav a {
-    color: #fff;
+    /*color: #fff;*/
     text-decoration: none;
 }
 
@@ -33,9 +34,9 @@ nav ul li {
 nav ul li a {
     display: block;
     padding: 0.5rem;
-    color: orange;
+    color: #FF00FF;
 }
 
 nav ul li a:hover {
-    background-color: #555;
+    background-color: coral;
 }

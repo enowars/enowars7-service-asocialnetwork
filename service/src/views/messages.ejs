@@ -61,10 +61,10 @@
                 </div>
             <%}%>
             <% if (locals.error) { %>
-                <div class="error" style="color: red"> <%= error %> </div>
+                <div class="error" > <%= error %> </div>
             <% } %>
             <% if (!locals.partner){%>
-                <label id="recipient-label" for="recipient">Recipient</label>
+                <label id="recipient-label" for="recipient" >Recipient</label>
                 <input type="text" name="recipient" id="recipient" required><br>
             <% } else { %>
                 <input type="hidden" name="recipient" id="recipient" value="<%=locals.partner%>">

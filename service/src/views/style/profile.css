@@ -10,8 +10,8 @@
 }
 
 .profile-pic {
-    width: 100%;
-    height: auto;
+    width: 223px;
+    height: 150px;
     border-radius: 50%;
     overflow: hidden;
     object-fit: cover;

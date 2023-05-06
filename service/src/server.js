@@ -169,11 +169,6 @@ app.use((req, res, next) => {
         res.render(res.page, res.params);
     }
 });
-app.get('/database/messages', async (req, res) => {
-    let messages = await Message.find();
-    await Message.updateMany({}, {read: false});
-    res.json(messages);
-});
 app.listen(3000, () => {
 
 });

@@ -91,6 +91,11 @@ router.get('/', async (req, res, next) => {
 });
 router.get('/:partner', async (req, res, next) => {
     let partner = (await User.findOne().byUserName(req.params.partner))[0];
+    if(!partner) {
+        res.params = {new: true, messages: false, error: 'Recipient does not exist'};
+        next();
+        return;
+    }
     let messages = await getMessages(req.user, partner);
     res.params = {new: false, partner: req.params.partner, messages: messages};
     next();
