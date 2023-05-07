@@ -1,4 +1,54 @@
+main{
+    font-family: "Comic Sans MS", "Comic Sans", cursive;
+}
+h1{
+    width: 60%;
+    display:inline;
+}
 .profile-pic{
-    width: 500px;
-    height: 500px;
+    width: 200px;
+    height: 200px;
+    float: right;
+    margin: 2%;
+    border-radius: 50%;
+    overflow: hidden;
+    object-fit: cover;
+    object-position: center;
+}
+.chatroom-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.chatroom-list li {
+    margin-bottom: 10px;
+    background-color: teal;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.chatroom-list li a {
+    color: #333;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.chatroom-list li a:hover {
+    color: #000;
+}
+
+.chatroom-add{
+    /*margin-top: 10px;*/
+    /*margin-bottom: 10px;*/
+    height: 44px;
+    width: 44px;
+}
+.chatroom-join{
+    color: hotpink;
+    text-decoration: none;
+}
+.chatroom-join:hover{
+    color: greenyellow;
+    text-decoration: none;
 }

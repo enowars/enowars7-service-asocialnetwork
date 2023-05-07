@@ -58,7 +58,7 @@ nav a {
     padding: 5px;
     margin-bottom: 5px;
     max-width: 70%;
-    border-radius: 10px;
+    /*border-radius: 10px;*/
     font-family: "Comic Sans MS", "Comic Sans", cursive;
     overflow-wrap: break-word;
 }
@@ -85,14 +85,17 @@ label {
 }
 
 input[type="text"] {
-    border-radius: 5px;
+    /*border-radius: 5px;*/
     border: none;
     padding: 5px;
     margin-bottom: 10px;
     display:block;
     width: 70%;
+    font-family: "Comic Sans MS", "Comic Sans", cursive;
 }
-
+main{
+    font-family: "Comic Sans MS", "Comic Sans", cursive;
+}
 button {
     background-color: aqua;
     border: none;
@@ -104,4 +107,5 @@ button {
 
 button:hover {
     background-color: #007bff;
+
 }

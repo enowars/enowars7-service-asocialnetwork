@@ -12,8 +12,10 @@ let cookieParser = require('cookie-parser');
 const User = require('./models/user');
 const Message = require('./models/message');
 const Profile = require('./models/profile');
+const Chatroom = require('./models/chatroom');
 const messageRouter = require('./routers/messageRouter');
 const profileRouter = require('./routers/profileRouter');
+const chatroomRouter = require('./routers/chatroomRouter');
 app.use(cookieParser());
 app.use(async (req, res, next) => {
     if(req.method === 'POST' && (req.url === '/register' || req.url === '/login')) {
@@ -32,6 +34,7 @@ app.use(async (req, res, next) => {
 });
 app.use('/messages', messageRouter);
 app.use('/profile', profileRouter);
+app.use('/chatroom', chatroomRouter);
 app.get('/', (req, res) => {
     res.redirect('/home');
 });
@@ -143,7 +146,7 @@ app.get('/home', async (req, res, next) => {
     }
     res.page = 'home';
     let profile = await Profile.find({user: req.user._id});
-    res.params = {userPic: profile[0].image};
+    res.params = {userPic: profile[0].image, rooms: await Chatroom.find({})};
     next();
 });
 app.get('/logout', (req, res) => {
