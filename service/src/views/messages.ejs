@@ -15,7 +15,7 @@
                 <a class="btn btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                     Partner
                 </a>
-                <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+                <div class="dropdown-menu" id="partner-list" aria-labelledby="dropdownMenuLink">
                     <% partners.forEach((partner) => {%>
                         <a class="dropdown-item" href="/messages/<%=partner.name%>"><img src="/assets/profile-pics/<%= partner.profilePic %>.jpg" alt="avatar" class="avatar"><%= partner.name %></a>
                     <%});%>
