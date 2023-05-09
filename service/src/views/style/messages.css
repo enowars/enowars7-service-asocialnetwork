@@ -27,17 +27,16 @@ nav a {
     border-color: #c79f00;
 }
 
-.dropdown-menu {
-    background-color: #2b2b2b;
+#partner-list {
+    background-color: orange;
 }
 
 .dropdown-item {
-    color: white;
     font-family: "Comic Sans MS", "Comic Sans", cursive;
 }
 
 .dropdown-item:hover {
-    background-color: #c79f00;
+    background-color: orange;
 }
 
 .message-partner {

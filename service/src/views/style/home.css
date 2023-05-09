@@ -1,8 +1,9 @@
 main{
     font-family: "Comic Sans MS", "Comic Sans", cursive;
 }
-h1{
+.greeting{
     width: 60%;
+    color: #0056b3;
     display:inline;
 }
 .profile-pic{
@@ -23,7 +24,7 @@ h1{
 
 .chatroom-list li {
     margin-bottom: 10px;
-    background-color: teal;
+    background-color: orange;
     padding: 10px;
     border-radius: 5px;
 }
@@ -45,7 +46,7 @@ h1{
     width: 44px;
 }
 .chatroom-join{
-    color: hotpink;
+    color: teal;
     text-decoration: none;
 }
 .chatroom-join:hover{
