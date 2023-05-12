@@ -50,26 +50,37 @@ app.get('/register', (req, res, next) => {
     next();
 });
 app.post('/register', async (req, res, next) => {
+    if(!req.body.username || !req.body.password || !req.body.confirmPassword) {
+        res.status(400);
+        res.page = 'register';
+        res.params = {error: 'Please fill in all fields'};
+        next();
+        return;
+    }
     if(req.body.username === '' || req.body.password === '' || req.body.confirmPassword === '') {
+        res.status(400);
         res.page = 'register';
         res.params = {error: 'Please fill in all fields'};
         next();
         return;
     }
     if(req.body.username.length > 100 || req.body.password.length > 100 || req.body.confirmPassword.length > 100) {
+        res.status(400);
         res.page = 'register';
         res.params = {error: 'Username and password must be less than 100 characters'};
         next();
         return;
     }
-    let user = await User.findOne().byUserName(req.body.username);
+    let user = await User.find({userName: req.body.username});
     if(user.length > 0) {
+        res.status(400);
         res.page = 'register';
         res.params = {error: 'Username already exists'};
         next();
         return;
     }
     if(req.body.password !== req.body.confirmPassword) {
+        res.status(400);
         res.page = 'register';
         res.params = {error: 'Passwords do not match'};
         next();

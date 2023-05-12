@@ -52,17 +52,19 @@ async function getPartners(user){
 }
 
 router.post('/', async (req, res, next) => {
-   if(req.body.message === '') {
+   if(!req.body.message) {
+       res.status(400);
        res.render('messages', {userName: await getUserNameById(req.user._id), new: true, partners: req.partners, messages: false, error: 'Message cannot be empty'});
        return;
    }
    let recipient = (await User.findOne().byUserName(req.body.recipient))[0];
    if(!recipient) {
-
+       res.status(404);
        res.render('messages', {userName: await getUserNameById(req.user._id), new: true, partners: req.partners, messages: false, error: 'Recipient does not exist'});
        return;
    }
    if(req.user.userName === recipient.userName) {
+       res.status(400);
        res.render('messages', {userName: await getUserNameById(req.user._id), new: true, partners: req.partners, messages: false, error: 'You cannot send a message to yourself'});
         return;
    }
@@ -92,6 +94,7 @@ router.get('/', async (req, res, next) => {
 router.get('/:partner', async (req, res, next) => {
     let partner = (await User.findOne().byUserName(req.params.partner))[0];
     if(!partner) {
+        res.status(404);
         res.params = {new: true, messages: false, error: 'Recipient does not exist'};
         next();
         return;
