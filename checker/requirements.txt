@@ -2,3 +2,5 @@ enochecker3==0.7.1
 uvicorn
 gunicorn
 faker
+selenium
+webdriver-manager

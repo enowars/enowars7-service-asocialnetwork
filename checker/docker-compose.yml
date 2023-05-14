@@ -21,6 +21,8 @@ services:
       nproc:
         soft: 4000
         hard: 4000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
   # The python checkerlib requires a mongo db!
   asocialnetwork-mongo:
     image: mongo
