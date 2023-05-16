@@ -60,7 +60,7 @@ async def retrieveMessage(task, client, recipient, logger, username, password):
 async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> None:
     flag = task.flag
     logger.debug(task.address)
-    recipient = "a"
+    recipient = "admin"
     username, password, cookie = await sendMessage(task, client, recipient, flag, logger)
     r = await retrieveMessage(task, client, recipient, logger, username, password)
     assert_in(flag, r.text, "flag missing from messages")
@@ -81,7 +81,7 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
 @checker.putnoise(0)
 async def putnoise0(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> None:
     noise = secrets.token_hex(32)
-    recipient = "a"
+    recipient = "admin"
     username, password, cookie = await sendMessage(task, client, recipient, noise, logger)
     await chain_db.set("noise", (username, password, noise))
 
@@ -110,9 +110,8 @@ async def exploit_test(searcher: FlagSearcher, client: AsyncClient) -> Optional[
 def xss(task, start, logger):
     options = webdriver.ChromeOptions()
     options.add_argument('--headless=new')
-    options.add_argument('--no-sandbox')
     driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
-    driver.get(f"{task.address}/messages/aa")
+    driver.get(f"{task.address}/messages/admin")
     reloads = 0
     while True:
         if time.time() - start > ((task.timeout / 1000) - 1):
