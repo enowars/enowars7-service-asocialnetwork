@@ -11,7 +11,7 @@ main{
     height: 200px;
     float: right;
     margin: 2%;
-    border-radius: 50%;
+    /*border-radius: 50%;*/
     overflow: hidden;
     object-fit: cover;
     object-position: center;

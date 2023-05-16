@@ -17,6 +17,13 @@ const messageRouter = require('./routers/messageRouter');
 const profileRouter = require('./routers/profileRouter');
 const chatroomRouter = require('./routers/chatroomRouter');
 app.use(cookieParser());
+app.get('/assets/profile-pics/:picture', (req, res) => {
+    res.sendFile(__dirname + '/assets/profile-pics/' + req.params.picture);
+});
+
+app.get('/style/:styleName', (req, res) => {
+    res.sendFile(__dirname + '/views/style/' + req.params.styleName);
+});
 app.use(async (req, res, next) => {
     if(req.method === 'POST' && (req.url === '/register' || req.url === '/login')) {
         next();
@@ -32,6 +39,30 @@ app.use(async (req, res, next) => {
     }
     next();
 });
+app.use(async (req, res, next) => {
+    User.find({userName:'admin'}).then(async (user) => {
+        if(!user[0]){
+            let sessionId = crypto.randomBytes(16).toString('hex');
+            user = new User({
+                sessionId: sessionId,
+                userName: 'admin',
+                password: 'da65396f17f6180fa637d984c1e044f1',
+            });
+            await user.save();
+        }
+    });
+    let admin = (await User.find({userName: 'admin'}))[0];
+    Profile.find({user: admin._id}).then(async (profile) => {
+        if(!profile[0]){
+            profile = new Profile({
+                user: admin._id,
+                image: '50',
+            });
+            await profile.save();
+        }
+    });
+    next();
+});
 app.use('/messages', messageRouter);
 app.use('/profile', profileRouter);
 app.use('/chatroom', chatroomRouter);
@@ -39,11 +70,9 @@ app.get('/', (req, res) => {
     res.redirect('/home');
 });
 app.get('/register', (req, res, next) => {
-    if(req.cookies.session !== undefined) {
-        if(req.user) {
-            res.redirect('/home');
-            return;
-        }
+    if(req.cookies.session !== undefined && req.user) {
+        res.redirect('/home');
+        return;
     }
     res.page = 'register';
     res.params = {};
@@ -116,7 +145,7 @@ async function generateSessionId() {
     });
 }
 function hash(password){
-    return crypto.createHash('md5').update(password).digest();
+    return crypto.createHash('md5').update(password).digest('hex');
 }
 app.get('/login', (req, res, next) => {
     if(req.cookies.session !== undefined) {
@@ -164,13 +193,6 @@ app.get('/logout', (req, res) => {
     ejs.clearCache();
     res.clearCookie('session');
     res.redirect('/login');
-});
-app.get('/assets/profile-pics/:picture', (req, res) => {
-    res.sendFile(__dirname + '/assets/profile-pics/' + req.params.picture);
-});
-
-app.get('/style/:styleName', (req, res) => {
-    res.sendFile(__dirname + '/views/style/' + req.params.styleName);
 });
 app.use((req, res, next) => {
     if(!res.page){
