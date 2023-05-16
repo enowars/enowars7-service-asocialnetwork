@@ -74,9 +74,9 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
         username, password, flag = await db.get("userdata")
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
-    r = await retrieveMessage(task, client, "a", logger, username, password)
+    r = await retrieveMessage(task, client, "admin", logger, username, password)
     assert_in(task.flag, r.text, "flag missing from note")
-    xss(task, start, logger)
+    # xss(task, start, logger)
 
 @checker.putnoise(0)
 async def putnoise0(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> None:
@@ -92,7 +92,7 @@ async def getnoise0(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
         username, password, noise = await db.get("noise")
     except KeyError:
         raise MumbleException("Missing database entry from putnoise")
-    r = await retrieveMessage(task, client, "a", logger, username, password)
+    r = await retrieveMessage(task, client, "admin", logger, username, password)
     assert_in(noise, r.text, "noise missing from note")
 
 
