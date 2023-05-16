@@ -26,7 +26,7 @@ async function getMessages(user, partner){
             };
         filteredMessages.push(newMessage);
     }
-    return filteredMessages;;
+    return filteredMessages;
 }
 async function getPartners(user){
     const messages = await Message.find({ $or: [{ sender: user._id }, { recipient: user._id }] });

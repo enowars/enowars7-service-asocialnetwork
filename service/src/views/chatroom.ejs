@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title><%=chatroom.name%>></title>
+    <title><%=chatroom.name%></title>
     <link rel="stylesheet" href="/style/global.css">
     <link rel="stylesheet" href="/style/chatroom.css">
     <link rel="stylesheet" href="/style/nav.css">
@@ -39,11 +39,14 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
     <script>
         function submitMessage(){
+            let message = $('input[name="message"]').val();
+            if(message === '')
+                return;
             $.ajax({
                 url: window.location.href + '/messages',
                 type: 'POST',
                 data: {
-                    message: $('input[name="message"]').val()
+                    message: message
                 },
                 success: function(data) {
                     // Clear the input
