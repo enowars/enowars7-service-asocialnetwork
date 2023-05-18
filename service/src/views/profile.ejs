@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Select Profile Picture</title>
+    <title>Profile</title>
     <link rel="stylesheet" href="/style/global.css">
     <link rel="stylesheet" href="/style/profile.css">
     <link rel="stylesheet" href="/style/nav.css">
@@ -10,31 +10,93 @@
 </head>
 <body>
 <%- include('navbar') %>
-<h1>Select Profile Picture</h1>
-
-<div class="grid-container">
-    <% for(let i = 1; i <= 50; i++) { %>
-        <div class="grid-item">
-            <img src="/assets/profile-pics/<%= i %>.jpg" alt="Profile Pic <%= i %>" class="profile-pic">
-            <input type="radio" name="profile-pic" value="<%= i %>" id="profile-pic-<%= i %>" <%if(i == selected){%> checked <%}%>>
-            <label for="profile-pic-<%= i %>">Select</label>
+<main>
+    <h1>Profile</h1>
+    <%if(locals.error){%>
+        <%console.log(error)%>
+        <div class="error">
+            <%=error%>
         </div>
-    <% } %>
-</div>
-<button type="submit" onclick="saveProfilePic()">Save</button>
-<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <%} else{%>
+        <div class="error">
+        </div>
+        <div class="row">
+            <div class="col-4">
+                <div class="profile">
+                    <div class="profile-info">
+                        <h2><%= user.userName %></h2>
+                    </div>
+                    <div class="profile-picture">
+                        <img src="/assets/profile-pics/<%= selected %>.jpg" class="profile-pic" alt="Profile Picture">
+                    </div>
+                </div>
+                <%if(visitor.userName === user.userName){%>
+                    <button class="btn btn-primary" onclick="window.location.href='/profile-picture'">Edit Profile Picture</button>
+                <%}%>
+            </div>
+            <div class="col-8">
+                <textarea  name="message" id="wallInput" placeholder="Leave a message on <%= user.userName %>'s wall"></textarea>
+                <%if(locals.messages){%>
+                    <div class="messages">
+                        <%for(let i = 0; i < messages.length; i++){%>
+                            <div class="message">
+                                <div class="row">
+                                    <div class="col-1">
+                                        <img src="/assets/profile-pics/<%= messages[i].image%>.jpg" class="wall-profile-pic" alt="Profile Picture">
+                                    </div>
+                                    <div class="col-11">
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <h3><%= messages[i].sender.userName %></h3>
+                                            </div>
+                                            <div class="message-date">
+                                                <h4><%= messages[i].date.toLocaleTimeString() + ' ' + messages[i].date.toLocaleDateString() %></h4>
+                                            </div>
+                                        </div>
+                                        <div class="message-text">
+                                            <p><%= messages[i].message %></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        <%}%>
+                    </div>
+                <%}%>
+            </div>
+        </div>
+    <%}%>
+</main>
+<script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha384-xBuQ/xzmlsLoJpyjoggmTEz8OWUFM0/RC5BsqQBDX2v5cMvDHcMakNTNrHIW2I5f" crossorigin="anonymous"></script>    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
 <script>
-    function saveProfilePic() {
-        let selected = document.querySelector('input[name="profile-pic"]:checked');
-        if(selected) {
-            let pic = selected.value;
-            fetch('/profile?pic=' + pic, {
-                method: 'POST'
-            }).then(() => {
-                window.location.href = '/home';
-            });
+    document.getElementById('wallInput').addEventListener('keydown', (event) => {
+        if((event.code === 'Enter' || event.code === 'NumpadEnter') && !event.shiftKey){
+            sendMessage();
+        }
+    });
+    function sendMessage(){
+        let message = $('#wallInput').val();
+        if(message !== ''){
+            $.ajax({
+                url: '/profile/<%= user.userName %>/wall',
+                type: 'POST',
+                data: {
+                    message: message
+                },
+                success: function(data){
+                    if(data.status == 200){
+                        $('.error').html('');
+                        $('#wallInput').val('');
+                        window.location.reload();
+                    }
+                    else{
+                        $('.error').html(data.message);
+                        $('#wallInput').val('');
+                    }
+                },
+                error: function(){
+                }
+            })
         }
     }
 </script>

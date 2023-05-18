@@ -125,10 +125,7 @@ async function getUnreadMessages(user){
 }
 router.use( async (req, res, next) => {
     res.page = 'messages';
-
     res.params = {... res.params, partners: req.partners, userName: await getUserNameById(req.user._id), unreadMessage: await getUnreadMessages(req.user)};
-    User.findOneAndUpdate({_id: req.user._id}, {lastViewedMessage: Date.now()}).then(() => {
-        next();
-    });
+    next();
 });
 module.exports = router;

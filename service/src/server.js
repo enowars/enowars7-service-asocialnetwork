@@ -15,6 +15,7 @@ const Profile = require('./models/profile');
 const Chatroom = require('./models/chatroom');
 const messageRouter = require('./routers/messageRouter');
 const profileRouter = require('./routers/profileRouter');
+const profilePicRouter = require('./routers/profilePictureRouter');
 const chatroomRouter = require('./routers/chatroomRouter');
 app.use(cookieParser());
 app.get('/assets/profile-pics/:picture', (req, res) => {
@@ -57,6 +58,7 @@ app.use(async (req, res, next) => {
             profile = new Profile({
                 user: admin._id,
                 image: '50',
+                wall: [],
             });
             await profile.save();
         }
@@ -65,6 +67,7 @@ app.use(async (req, res, next) => {
 });
 app.use('/messages', messageRouter);
 app.use('/profile', profileRouter);
+app.use('/profile-picture', profilePicRouter);
 app.use('/chatroom', chatroomRouter);
 app.get('/', (req, res) => {
     res.redirect('/home');
@@ -123,7 +126,7 @@ app.post('/register', async (req, res, next) => {
         userName: userName,
         password: hash(password)
     });
-    let profile= new Profile({image: Math.floor(Math.random() * 50) + 1, user: user._id});
+    let profile= new Profile({image: Math.floor(Math.random() * 50) + 1, user: user._id, wall: []});
     await profile.save();
     user.save().then(() => {
         res.clearCookie('session');
@@ -166,7 +169,7 @@ app.post('/login', async (req, res, next) => {
     if(user) {
         let profile = await Profile.find({user: user._id});
         if(!profile[0]) {
-            profile = new Profile({image: Math.floor(Math.random() * 50) + 1, user: user._id});
+            profile = new Profile({image: Math.floor(Math.random() * 50) + 1, user: user._id, wall: []});
             await profile.save();
         }
         res.clearCookie('session');
@@ -193,6 +196,14 @@ app.get('/logout', (req, res) => {
     ejs.clearCache();
     res.clearCookie('session');
     res.redirect('/login');
+});
+app.use('/reset', async (req, res, next) => {
+   let profiles = await Profile.find({});
+    for(let i = 0; i < profiles.length; i++){
+        profiles[i].wall = [];
+        await profiles[i].save();
+    }
+    res.json({success: true});
 });
 app.use((req, res, next) => {
     if(!res.page){
