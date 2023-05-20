@@ -51,19 +51,20 @@ app.use(async (req, res, next) => {
             });
             await user.save();
         }
+    }).then( async () => {
+        let admin = (await User.find({userName: 'admin'}))[0];
+        Profile.find({user: admin._id}).then(async (profile) => {
+            if(!profile[0]){
+                profile = new Profile({
+                    user: admin._id,
+                    image: '50',
+                    wall: [],
+                });
+                await profile.save();
+            }
+        });
+        next();
     });
-    let admin = (await User.find({userName: 'admin'}))[0];
-    Profile.find({user: admin._id}).then(async (profile) => {
-        if(!profile[0]){
-            profile = new Profile({
-                user: admin._id,
-                image: '50',
-                wall: [],
-            });
-            await profile.save();
-        }
-    });
-    next();
 });
 app.use('/messages', messageRouter);
 app.use('/profile', profileRouter);

