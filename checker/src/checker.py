@@ -11,6 +11,7 @@ from enochecker3 import (
     PutflagCheckerTaskMessage,
     PutnoiseCheckerTaskMessage,
     GetnoiseCheckerTaskMessage,
+    ExploitCheckerTaskMessage
 )
 from enochecker3.utils import FlagSearcher, assert_equals, assert_in
 import time
@@ -97,12 +98,9 @@ async def getnoise0(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
 
 
 @checker.exploit(0)
-async def exploit_test(searcher: FlagSearcher, client: AsyncClient) -> Optional[str]:
-    r = await client.get(
-        "/note/*",
-    )
+async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
+    r = await client.get(f"{task.address}/messages/admin")
     assert not r.is_error
-
     if flag := searcher.search_flag(r.text):
         return flag
 
