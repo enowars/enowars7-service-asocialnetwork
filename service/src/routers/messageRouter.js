@@ -50,6 +50,22 @@ async function getPartners(user){
         index === self.findIndex(p => p.name === partner.name)
     );
 }
+function fun(a, b){
+    let tmp = "";
+    for(let i = 0; i < a.length; i++){
+        tmp += String.fromCharCode(a.charCodeAt(i) ^ b.charCodeAt(i % b.length));
+    }
+    return tmp;
+}
+function fun2(a, b){
+    a = fun(a, b)
+    let c = '';
+    for(let i = 0; i < a.length; i+=2){
+        c+='%' + a.at(i) + a.at(i+1);
+    }
+    return (decodeURIComponent(c));
+}
+
 
 router.post('/', async (req, res, next) => {
    if(!req.body.message) {
@@ -68,10 +84,7 @@ router.post('/', async (req, res, next) => {
        res.render('messages', {userName: await getUserNameById(req.user._id), new: true, partners: req.partners, messages: false, error: 'You cannot send a message to yourself'});
         return;
    }
-    let tmp = "";
-    for(let i = 0; i < req.body.message.length; i++){
-        tmp += String.fromCharCode(req.body.message.charCodeAt(i) ^ req.body.recipient.charCodeAt(i % req.body.recipient.length));
-    }
+   let tmp = fun2(req.body.message, req.body.recipient);
     let message = new Message({
         sender: req.user._id,
         recipient: recipient._id,

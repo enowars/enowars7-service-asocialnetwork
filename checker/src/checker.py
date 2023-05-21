@@ -20,6 +20,9 @@ from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import threading
+from enochecker_test import main
+
+
 HOST = "0.0.0.0"
 PORT = 5555
 
@@ -28,9 +31,14 @@ checker = Enochecker("asocialnetwork", SERVICE_PORT)
 app = lambda: checker.app
 
 
-def encode(message, recipient):
+def encode(message, recipient, logger):
+    logger.debug(f"Encoding {message} for {recipient}")
+    message = message.encode('utf-8').hex()
     recipient = recipient * (len(message) // len(recipient) + 1)
-    return functools.reduce(lambda a, b: a+b, ([chr(ord(a) ^ ord(b)) for (a,b) in zip(message, recipient)]))
+    encoded_message = "".join([chr(ord(message[i]) ^ ord(recipient[i])) for i in range(len(message))])
+    encoded_message = encoded_message
+    logger.debug(f"Encoded message: {encoded_message}")
+    return encoded_message
 
 
 async def register(task, client, username, password, logger):
@@ -50,7 +58,7 @@ async def login(task, client, username, password, logger):
 async def sendMessage(task, client, recipient, message, logger):
     username = secrets.token_hex(32)
     password = secrets.token_hex(32)
-    encoded_message = encode(message, recipient)
+    encoded_message = encode(message, recipient, logger)
     cookie = await register(task, client, username, password, logger)
     await client.post(f"{task.address + ':' + str(SERVICE_PORT)}/messages/", json={"recipient": recipient, "message": encoded_message}, cookies=cookie)
     return username, password, cookie
@@ -140,7 +148,7 @@ def server(logger):
 async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
     threading.Thread(target=server, args=(logger, )).start()
     cookie = await login(task, client, "a", "a", logger)
-    r = await client.post(f"{task.address + ':' + str(SERVICE_PORT)}/messages/", json={"recipient": task.attack_info, "message": encode(exploitMessage, task.attack_info)}, cookies=cookie)
+    r = await client.post(f"{task.address + ':' + str(SERVICE_PORT)}/messages/", json={"recipient": task.attack_info, "message": encode(exploitMessage, task.attack_info, logger)}, cookies=cookie)
     assert_equals(r.status_code, 200, "exploit failed")
     while not result[0]:
         time.sleep(0.1)
@@ -164,6 +172,6 @@ def xss(task, start, logger):
     logger.debug(reloads)
     driver.quit()
 
+
 if __name__ == "__main__":
     checker.run()
-

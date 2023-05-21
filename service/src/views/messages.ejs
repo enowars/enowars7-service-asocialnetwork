@@ -87,6 +87,14 @@
                 }
                 return tmp;
             }
+            function fun2(a, b){
+                let c = unescape(encodeURIComponent(a));
+                let d = "";
+                for (var i = 0; i < c.length; i++) {
+                    d += (Number(c.charCodeAt(i)).toString(16));
+                }
+                return fun(d, b);
+            }
             function submitMessage(){
                 let message = document.getElementById('message').value;
                 let recipient = document.getElementById('recipient').value;
@@ -95,7 +103,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({message: fun(message, recipient), recipient: recipient})
+                    body: JSON.stringify({message: fun2(message, recipient), recipient: recipient})
                 }).then(res => {
                     if(Number(res.status) === 200){
                         return res.text();

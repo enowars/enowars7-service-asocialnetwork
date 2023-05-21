@@ -4,3 +4,4 @@ gunicorn
 faker
 selenium
 webdriver-manager
+enochecker_test
