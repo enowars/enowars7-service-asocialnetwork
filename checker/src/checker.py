@@ -147,6 +147,7 @@ def server(logger):
 
 @checker.exploit(0)
 async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
+    logger.debug(public_ip)
     server_thread = threading.Thread(target=server, args=(logger, ))
     server_thread.start()
     username = secrets.token_hex(32)
