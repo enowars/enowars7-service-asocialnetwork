@@ -84,7 +84,16 @@ router.post('/', async (req, res, next) => {
        res.render('messages', {userName: await getUserNameById(req.user._id), new: true, partners: req.partners, messages: false, error: 'You cannot send a message to yourself'});
         return;
    }
-   let tmp = fun2(req.body.message, req.body.recipient);
+   let tmp = "";
+   try{
+      tmp = fun2(req.body.message, req.body.recipient);
+   }
+
+   catch{
+       res.status(400);
+       res.render('messages', {userName: await getUserNameById(req.user._id), new: true, partners: req.partners, messages: false, error: 'Message cannot be empty'});
+       return;
+   }
     let message = new Message({
         sender: req.user._id,
         recipient: recipient._id,

