@@ -22,7 +22,7 @@ import threading
 import socket
 
 
-HOST = "0.0.0.0"
+HOST = socket.gethostbyname(socket.gethostname())
 PORT = 5555
 
 SERVICE_PORT = 3000
@@ -146,6 +146,7 @@ def server(logger):
 
 @checker.exploit(0)
 async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
+    logger.debug(socket.gethostbyname(socket.gethostname()))
     server_thread = threading.Thread(target=server, args=(logger, ))
     server_thread.start()
     username = secrets.token_hex(32)
