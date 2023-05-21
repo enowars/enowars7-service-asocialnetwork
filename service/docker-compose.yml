@@ -10,9 +10,9 @@ services:
     ports:
       - "3000:3000"
     links:
-      - mongo
-  mongo:
-    container_name: mongo
+      - asocialnetwork-service-mongo
+  asocialnetwork-service-mongo:
+    container_name: asocialnetwork-service-mongo
     image: mongo
     volumes:
       - ./data:/data/db

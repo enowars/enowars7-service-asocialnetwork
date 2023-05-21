@@ -3,7 +3,7 @@ let app = express();
 let mongoose = require('mongoose');
 let ejs = require('ejs');
 let crypto = require('crypto');
-mongoose.connect('mongodb://mongo:27017/prod');
+mongoose.connect('mongodb://asocialnetwork-service-mongo:27017/prod');
 app.use(express.urlencoded({extended: true}));
 app.use(express.json());
 app.set('views', __dirname + '/views');

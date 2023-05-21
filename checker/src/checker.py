@@ -147,6 +147,9 @@ def server(logger):
 async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
     server_thread = threading.Thread(target=server, args=(logger, ))
     server_thread.start()
+    time.sleep(1)
+    # sanity check
+    logger.debug( (await client.get(f"http://host.docker.internal:{PORT}/example")).text)
     username = secrets.token_hex(32)
     password = secrets.token_hex(32)
     cookie = await register(task, client, username, password, logger)
