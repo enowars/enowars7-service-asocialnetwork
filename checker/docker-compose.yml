@@ -6,7 +6,7 @@ services:
     # The checker runs a HTTP interfaces, so we need to map port 3031 to the outside (port 8000).
     ports:
       - "2137:8000"
-      - "5555:5555"
+      - "6452:6452"
     environment:
      - MONGO_ENABLED=1
      - MONGO_HOST=asocialnetwork-mongo
