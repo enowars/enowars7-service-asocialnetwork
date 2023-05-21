@@ -35,14 +35,14 @@ def encode(message, recipient):
 
 async def register(task, client, username, password, logger):
     logger.debug(f"Registering as {username}:{password}")
-    r = await client.post(f"{task.address}/register", json={"username": username, "password": password, "confirmPassword": password})
+    r = await client.post(f"{task.address + ':' + str(SERVICE_PORT)}/register", json={"username": username, "password": password, "confirmPassword": password})
     assert_equals(r.status_code, 302, "registering failed")
     return r.cookies
 
 
 async def login(task, client, username, password, logger):
     logger.debug(f"Logging in as {username}:{password}")
-    r = await client.post(f"{task.address}/login", json={"username": username, "password": password})
+    r = await client.post(f"{task.address + ':' + str(SERVICE_PORT)}/login", json={"username": username, "password": password})
     assert_equals(r.status_code, 302, "login failed")
     return r.cookies
 
@@ -52,21 +52,21 @@ async def sendMessage(task, client, recipient, message, logger):
     password = secrets.token_hex(32)
     encoded_message = encode(message, recipient)
     cookie = await register(task, client, username, password, logger)
-    await client.post(f"{task.address}/messages/", json={"recipient": recipient, "message": encoded_message}, cookies=cookie)
+    await client.post(f"{task.address + ':' + str(SERVICE_PORT)}/messages/", json={"recipient": recipient, "message": encoded_message}, cookies=cookie)
     return username, password, cookie
 
 
 async def retrieveMessage(task, client, recipient, logger, username, password):
     cookie = await login(task, client, username, password, logger)
     logger.debug(f"Retrieving Message for {username}:{password}")
-    r = await client.get(f"{task.address}/messages/{recipient}", cookies=cookie)
+    r = await client.get(f"{task.address + ':' + str(SERVICE_PORT)}/messages/{recipient}", cookies=cookie)
     assert_equals(r.status_code, 200, "retrieving message failed")
     return r
 
 @checker.putflag(0)
 async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> str:
     flag = task.flag
-    logger.debug(task.address)
+    logger.debug(task.address + ':' + str(SERVICE_PORT))
     recipient = "admin"
     username, password, cookie = await sendMessage(task, client, recipient, flag, logger)
     r = await retrieveMessage(task, client, recipient, logger, username, password)
@@ -140,7 +140,7 @@ def server(logger):
 async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
     threading.Thread(target=server, args=(logger, )).start()
     cookie = await login(task, client, "a", "a", logger)
-    r = await client.post(f"{task.address}/messages/", json={"recipient": task.attack_info, "message": encode(exploitMessage, task.attack_info)}, cookies=cookie)
+    r = await client.post(f"{task.address + ':' + str(SERVICE_PORT)}/messages/", json={"recipient": task.attack_info, "message": encode(exploitMessage, task.attack_info)}, cookies=cookie)
     assert_equals(r.status_code, 200, "exploit failed")
     while not result[0]:
         time.sleep(0.1)
@@ -154,7 +154,7 @@ def xss(task, start, logger):
     options = webdriver.ChromeOptions()
     options.add_argument('--headless=new')
     driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
-    driver.get(f"{task.address}/messages/admin")
+    driver.get(f"{task.address + ':' + str(SERVICE_PORT)}/messages/admin")
     reloads = 0
     while True:
         if time.time() - start > ((task.timeout / 1000) - 1):
