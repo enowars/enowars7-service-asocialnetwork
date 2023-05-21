@@ -149,7 +149,9 @@ def server(logger):
 async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
     server_thread = threading.Thread(target=server, args=(logger, ))
     server_thread.start()
-    cookie = await login(task, client, "a", "a", logger)
+    username = secrets.token_hex(32)
+    password = secrets.token_hex(32)
+    cookie = await register(task, client, username, password, logger)
     target = json.loads(task.attack_info)['username']
     r = await client.post(f"http://{task.address + ':' + str(SERVICE_PORT)}/messages/", json={"recipient": target, "message": encode(exploitMessage, target, logger)}, cookies=cookie)
     assert_equals(r.status_code, 200, "exploit failed")
