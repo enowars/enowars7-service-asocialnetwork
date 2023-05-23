@@ -47,7 +47,8 @@ app.use(async (req, res, next) => {
             user = new User({
                 sessionId: sessionId,
                 userName: 'admin',
-                password: 'da65396f17f6180fa637d984c1e044f1',
+                // Super secure password, totally uncrackable!
+                password: '33a4a7a4287052db6a39b5b37aea9b77',
             });
             await user.save();
         }
