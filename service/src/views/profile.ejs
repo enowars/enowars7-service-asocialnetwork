@@ -11,7 +11,17 @@
 <body>
 <%- include('navbar') %>
 <main>
-    <h1>Profile</h1>
+    <div class="row">
+        <div class="col-4">
+            <h1>Profile</h1>
+        </div>
+        <div class="col-8">
+            <%if(visitor.userName === user.userName){%>
+                <button class="btn btn-primary" id="profile-pic-edit" onclick="window.location.href='/profile-picture'">Edit Profile Picture</button>
+            <%}%>
+        </div>
+    </div>
+
     <%if(locals.error){%>
         <%console.log(error)%>
         <div class="error">
@@ -30,8 +40,19 @@
                         <img src="/assets/profile-pics/<%= selected %>.jpg" class="profile-pic" alt="Profile Picture">
                     </div>
                 </div>
-                <%if(visitor.userName === user.userName){%>
-                    <button class="btn btn-primary" onclick="window.location.href='/profile-picture'">Edit Profile Picture</button>
+                <h2>
+                    In rooms:
+                </h2>
+                <%if(locals.rooms){%>
+                    <div class="rooms">
+                        <%for(let i = 0; i < rooms.length; i++){%>
+                            <%if(rooms[i].name){%>
+                                <div class="room">
+                                    <h3><%= rooms[i].name %></h3>
+                                </div>
+                            <%}%>
+                        <%}%>
+                    </div>
                 <%}%>
             </div>
             <div class="col-8">

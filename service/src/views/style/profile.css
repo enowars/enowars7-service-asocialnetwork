@@ -56,3 +56,6 @@ main{
     width: 50%;
     color: lightgreen;
 }
+#profile-pic-edit{
+    float:right;
+}

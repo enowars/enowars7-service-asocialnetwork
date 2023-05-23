@@ -190,7 +190,7 @@ app.get('/home', async (req, res, next) => {
     }
     res.page = 'home';
     let profile = await Profile.find({user: req.user._id});
-    res.params = {userPic: profile[0].image, rooms: await Chatroom.find({})};
+    res.params = {userPic: profile[0].image, rooms: await Chatroom.find({ $or: [{ public: true }, { members: req.user._id}] })};
     next();
 });
 app.get('/logout', (req, res) => {
@@ -205,6 +205,9 @@ app.use('/reset', async (req, res, next) => {
         await profiles[i].save();
     }
     res.json({success: true});
+});
+app.use('/test', async (req, res, next) => {
+   res.json(await Chatroom.find({members: "646c20ae5aedb15b2eaef8b4"}));
 });
 app.use((req, res, next) => {
     if(!res.page){

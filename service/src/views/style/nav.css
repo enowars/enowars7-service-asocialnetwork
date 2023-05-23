@@ -1,4 +1,4 @@
-nav {
+#navbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -6,6 +6,7 @@ nav {
     /*color: #fff;*/
     padding: 0.5rem;
     font-family: "Comic Sans MS", "Comic Sans", cursive;
+    padding-left: 16px;
 }
 
 .nav-icon {
@@ -31,7 +32,7 @@ nav ul li {
     margin: 0 0.5rem;
 }
 
-nav ul li a {
+nav .nav-link {
     display: block;
     padding: 0.5rem;
     color: #FF00FF;
@@ -39,4 +40,7 @@ nav ul li a {
 
 nav ul li a:hover {
     background-color: coral;
+}
+#logo{
+    color: dodgerblue;
 }

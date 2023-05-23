@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Profile = require('../models/profile');
 const User = require('../models/user');
+const Chatroom = require('../models/chatroom');
 async function getWall(profile) {
     let wall = [].concat(profile.wall).reverse();
     for(let i = 0; i < wall.length; i++) {
@@ -18,7 +19,7 @@ router.get('/', async (req, res, next) => {
     res.page = 'profile';
     let profile = await Profile.find({user: req.user._id});
     profile = profile[0];
-    res.params = {selected: profile.image, user: req.user, visitor: req.user, messages: await getWall(profile)};
+    res.params = {selected: profile.image, user: req.user, visitor: req.user, messages: await getWall(profile), rooms: await Chatroom.find({members: req.user._id})};
     next();
 });
 router.get('/:userName', async (req, res, next) => {
@@ -28,14 +29,14 @@ router.get('/:userName', async (req, res, next) => {
     }
     res.page = 'profile';
     let user = (await User.find({userName: req.params.userName}))[0];
-    if(user.length === 0) {
-        res.render('profile', {error: 'User not found', user: req.user});
+    if(user === undefined) {
+        res.render('login', {error: 'User not found'});
         return;
     }
     let profile = await Profile.find({user: user._id});
     profile = profile[0];
-    res.params = {selected: profile.image, user: user, visitor: req.user, messages: await getWall(profile)};
-
+    let rooms = await Chatroom.find({members: user._id});
+    res.params = {selected: profile.image, user: user, visitor: req.user, messages: await getWall(profile), rooms: rooms};
     next();
 });
 router.post('/:userName/wall', async (req, res, next) => {

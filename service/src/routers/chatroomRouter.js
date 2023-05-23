@@ -15,6 +15,12 @@ router.get('/:roomId', async (req, res, next) => {
         res.redirect('/home');
         return;
     }
+    console.log(chatroom[0].members, req.user._id)
+    if(!chatroom[0].members.includes(req.user._id)) {
+        console.log('adding' + req.user.userName)
+        chatroom[0].members.push(req.user._id);
+        await chatroom[0].save();
+    }
     for(let i = 0; i < chatroom[0].messages.length; i++) {
         let author = await User.find({_id: chatroom[0].messages[i].author});
         chatroom[0].messages[i].user = {userName: author[0].userName, avatar: '/assets/profile-pics/' + (await Profile.find({user: author[0]._id}))[0].image + '.jpg'};
@@ -97,17 +103,37 @@ router.get('/:roomId/messages/:lastMessageTime', async (req, res) => {
     }, req.params.roomId, new Date(Number.parseInt(req.params.lastMessageTime)));
 });
 router.post('/', async (req, res) => {
-    let chatroom = await Chatroom.find({name: req.query.roomName});
+    let chatroom = await Chatroom.find({name: req.query.roomname});
     chatroom = chatroom[0];
+    console.log('creating room' + req.query.roomname)
+    if(typeof req.query.roomname !== 'string'){
+        res.send('room name must be a string');
+        return;
+    }
+    if(!req.query.roomname){
+        res.send('room name is required');
+        return;
+    }
+    if(!req.query.public){
+        res.send('public is required');
+        return;
+    }
+    if(req.query.public !== 'true' && req.query.public !== 'false'){
+        res.send('public must be true or false');
+        return;
+    }
     if(!chatroom) {
         chatroom = new Chatroom({
-            name: req.query.roomName,
+            name: req.query.roomname,
             users: [],
             messages: [],
-            id: crypto.createHash('md5').update(req.query.roomName).digest('hex')
+            members: [],
+            public: req.query.public,
+            id: crypto.createHash('md5').update(req.query.roomname).digest('hex')
         });
         await chatroom.save();
     }
+    res.status(200);
     res.send(chatroom.id);
 });
 router.post('/:roomId/messages', async (req, res) => {
