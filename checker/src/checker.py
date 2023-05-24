@@ -173,7 +173,6 @@ def server(logger):
         pass
 
     webServer[0].server_close()
-    time.sleep(1)
     print("Server stopped.")
 
 
@@ -181,7 +180,7 @@ def server(logger):
 async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
     server_thread = threading.Thread(target=server, args=(logger, ))
     server_thread.start()
-    time.sleep(1)
+    time.sleep(0.1)
     # sanity check
     logger.debug((await client.get(f"http://localhost:{PORT}/example")).text)
     username = secrets.token_hex(32)
@@ -195,7 +194,7 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     while not result[0]:
         time.sleep(0.1)
     webServer[0].shutdown()
-    server_thread.join()
+    # server_thread.join()
     logger.debug('Server stopped')
     if flag := searcher.search_flag(result[0]):
         return flag
