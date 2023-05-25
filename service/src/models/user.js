@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema(
                 return this.find({sessionId: session});
             },
             byUserNamePassword: function (userName, password) {
-                return this.find({userName: userName, password: crypto.createHash('md5').update(password).digest()});
+                return this.find({userName: userName, password: crypto.createHash('sha256').update(password).digest()});
             },
             byUserName: function (userName) {
                 return this.find({userName: userName});

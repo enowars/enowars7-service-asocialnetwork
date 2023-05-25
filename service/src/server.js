@@ -47,8 +47,7 @@ app.use(async (req, res, next) => {
             user = new User({
                 sessionId: sessionId,
                 userName: 'admin',
-                // Super secure password, totally uncrackable!
-                password: '33a4a7a4287052db6a39b5b37aea9b77',
+                password: 'f405417f8210fc89a5cd931c8b631dad8ce88184c504413c02a38fbd22dee463',
             });
             await user.save();
         }
@@ -150,7 +149,9 @@ async function generateSessionId() {
     });
 }
 function hash(password){
-    return crypto.createHash('md5').update(password).digest('hex');
+    let hash = crypto.createHash('sha256').update(password).digest('hex');
+    console.log(hash)
+    return hash;
 }
 app.get('/login', (req, res, next) => {
     if(req.cookies.session !== undefined) {
@@ -199,16 +200,8 @@ app.get('/logout', (req, res) => {
     res.clearCookie('session');
     res.redirect('/login');
 });
-app.use('/reset', async (req, res, next) => {
-   let profiles = await Profile.find({});
-    for(let i = 0; i < profiles.length; i++){
-        profiles[i].wall = [];
-        await profiles[i].save();
-    }
-    res.json({success: true});
-});
 app.use('/test', async (req, res, next) => {
-   res.json(await Chatroom.find({members: "646c20ae5aedb15b2eaef8b4"}));
+   res.json(await Chatroom.find({}));
 });
 app.use((req, res, next) => {
     if(!res.page){

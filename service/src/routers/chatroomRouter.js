@@ -129,7 +129,7 @@ router.post('/', async (req, res) => {
             messages: [],
             members: [],
             public: req.query.public,
-            id: crypto.createHash('md5').update(req.query.roomname).digest('hex')
+            id: crypto.createHash('sha256').update(req.query.roomname).digest('hex')
         });
         await chatroom.save();
     }
