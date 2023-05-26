@@ -25,6 +25,7 @@ app.get('/assets/profile-pics/:picture', (req, res) => {
 app.get('/style/:styleName', (req, res) => {
     res.sendFile(__dirname + '/views/style/' + req.params.styleName);
 });
+
 app.use(async (req, res, next) => {
     if(req.method === 'POST' && (req.url === '/register' || req.url === '/login')) {
         next();
@@ -40,42 +41,30 @@ app.use(async (req, res, next) => {
     }
     next();
 });
-app.use(async (req, res, next) => {
-    User.find({userName:'admin'}).then(async (user) => {
-        if(!user[0]){
-            let sessionId = crypto.randomBytes(16).toString('hex');
-            user = new User({
-                sessionId: sessionId,
-                userName: 'admin',
-                password: 'f405417f8210fc89a5cd931c8b631dad8ce88184c504413c02a38fbd22dee463',
-            });
-            await user.save();
-        }
-    }).then( async () => {
-        let admin = (await User.find({userName: 'admin'}))[0];
-        Profile.find({user: admin._id}).then(async (profile) => {
-            if(!profile[0]){
-                profile = new Profile({
-                    user: admin._id,
-                    image: '50',
-                    wall: [],
-                });
-                await profile.save();
-            }
-        });
-        next();
-    });
-});
 app.use('/messages', messageRouter);
 app.use('/profile', profileRouter);
 app.use('/profile-picture', profilePicRouter);
 app.use('/chatroom', chatroomRouter);
-app.get('/', (req, res) => {
-    res.redirect('/home');
+app.get('/', async (req, res, next) => {
+    if(!req.user) {
+        res.redirect('/login');
+        return;
+    }
+    res.page = 'home';
+    try{
+        let profile = await Profile.find({user: req.user._id});
+        let rooms = await Chatroom.find({ $or: [{ public: true }, { members: req.user._id}] });
+        res.params = {userPic: profile[0].image, rooms: rooms};
+        next();
+    }
+    catch (e) {
+        res.status(500).send('Internal server error');
+        return;
+    }
 });
 app.get('/register', (req, res, next) => {
     if(req.cookies.session !== undefined && req.user) {
-        res.redirect('/home');
+        res.redirect('/');
         return;
     }
     res.page = 'register';
@@ -104,37 +93,42 @@ app.post('/register', async (req, res, next) => {
         next();
         return;
     }
-    let user = await User.find({userName: req.body.username});
-    if(user.length > 0) {
-        res.status(400);
-        res.page = 'register';
-        res.params = {error: 'Username already exists'};
-        next();
+    try{
+        let user = await User.find({userName: req.body.username});
+        if(user.length > 0) {
+            res.status(400);
+            res.page = 'register';
+            res.params = {error: 'Username already exists'};
+            next();
+            return;
+        }
+        if(req.body.password !== req.body.confirmPassword) {
+            res.status(400);
+            res.page = 'register';
+            res.params = {error: 'Passwords do not match'};
+            next();
+            return;
+        }
+        let sessionId = await generateSessionId();
+        let userName = req.body.username;
+        let password = req.body.password;
+        user = new User({
+            sessionId: sessionId,
+            userName: userName,
+            password: hash(password)
+        });
+        let profile= new Profile({image: Math.floor(Math.random() * 50) + 1, user: user._id, wall: []});
+        await profile.save();
+        user.save().then(() => {
+            res.clearCookie('session');
+            res.cookie('session', sessionId, {maxAge: 900000, httpOnly: true});
+            res.redirect('/');
+        });
+    }
+    catch (e) {
+        res.status(500).send('Internal server error');
         return;
     }
-    if(req.body.password !== req.body.confirmPassword) {
-        res.status(400);
-        res.page = 'register';
-        res.params = {error: 'Passwords do not match'};
-        next();
-        return;
-    }
-    let sessionId = await generateSessionId();
-    let userName = req.body.username;
-    let password = req.body.password;
-    user = new User({
-        sessionId: sessionId,
-        userName: userName,
-        password: hash(password)
-    });
-    let profile= new Profile({image: Math.floor(Math.random() * 50) + 1, user: user._id, wall: []});
-    await profile.save();
-    user.save().then(() => {
-        res.clearCookie('session');
-        res.cookie('session', sessionId, {maxAge: 900000, httpOnly: true});
-        res.redirect('/home');
-    });
-
 });
 async function generateSessionId() {
     return new Promise((resolve, reject) => {
@@ -149,60 +143,51 @@ async function generateSessionId() {
     });
 }
 function hash(password){
-    let hash = crypto.createHash('sha256').update(password).digest('hex');
-    console.log(hash)
-    return hash;
+    return crypto.createHash('sha256').update(password).digest('hex');
 }
 app.get('/login', (req, res, next) => {
-    if(req.cookies.session !== undefined) {
-        if(req.user){
-            res.redirect('/home');
-            return;
-        }
+    if(req.cookies.session !== undefined && req.user) {
+        res.redirect('/');
+        return;
     }
     res.page = 'login';
     res.params = {};
     next();
 });
 app.post('/login', async (req, res, next) => {
-    let userName = req.body.username;
-    let password = req.body.password;
-    let newSessionId = await generateSessionId();
-    let user = await User.findOneAndUpdate({userName: userName, password: hash(password)}, {sessionId: newSessionId}, {new: true});
-    if(user) {
-        let profile = await Profile.find({user: user._id});
-        if(!profile[0]) {
-            profile = new Profile({image: Math.floor(Math.random() * 50) + 1, user: user._id, wall: []});
-            await profile.save();
+    try {
+        let userName = req.body.username;
+        let password = req.body.password;
+        let newSessionId = await generateSessionId();
+        let user = await User.findOneAndUpdate({
+            userName: userName,
+            password: hash(password)
+        }, {sessionId: newSessionId}, {new: true});
+        if (user) {
+            let profile = await Profile.find({user: user._id});
+            if (!profile[0]) {
+                profile = new Profile({image: Math.floor(Math.random() * 50) + 1, user: user._id, wall: []});
+                await profile.save();
+            }
+            res.clearCookie('session');
+            res.cookie('session', user.sessionId, {maxAge: 900000, httpOnly: true});
+            res.redirect('/');
+        } else {
+            res.page = 'login';
+            res.status(401);
+            res.params = {error: 'Invalid username or password'};
+            next();
         }
-        res.clearCookie('session');
-        res.cookie('session', user.sessionId, {maxAge: 900000, httpOnly: true});
-        res.redirect('/home');
     }
-    else{
-        res.page = 'login';
-        res.status(401);
-        res.params = {error: 'Invalid username or password'};
-        next();
-    }
-});
-app.get('/home', async (req, res, next) => {
-    if(req.cookies.session === undefined) {
-        res.redirect('/login');
+    catch (e) {
+        res.status(500).send('Internal server error');
         return;
     }
-    res.page = 'home';
-    let profile = await Profile.find({user: req.user._id});
-    res.params = {userPic: profile[0].image, rooms: await Chatroom.find({ $or: [{ public: true }, { members: req.user._id}] })};
-    next();
 });
 app.get('/logout', (req, res) => {
     ejs.clearCache();
     res.clearCookie('session');
     res.redirect('/login');
-});
-app.use('/test', async (req, res, next) => {
-   res.json(await Chatroom.find({}));
 });
 app.use((req, res, next) => {
     if(!res.page){
@@ -216,5 +201,5 @@ app.use((req, res, next) => {
     }
 });
 app.listen(3000, () => {
-
+    console.log("Listening on port 3000")
 });

@@ -16,7 +16,7 @@
             <h1>Profile</h1>
         </div>
         <div class="col-8">
-            <%if(visitor.userName === user.userName){%>
+            <%if(visitor.userName === user.userName && !locals.error){%>
                 <button class="btn btn-primary" id="profile-pic-edit" onclick="window.location.href='/profile-picture'">Edit Profile Picture</button>
             <%}%>
         </div>

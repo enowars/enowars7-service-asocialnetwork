@@ -76,8 +76,15 @@
                 let roomName = document.getElementById("chatroomName").value;
                 let publicRadio = document.getElementById("flexRadioPublic");
                 if (roomName.length > 0) {
-                    fetch("/chatroom?roomname=" + roomName + "&public=" + publicRadio.checked, {
-                        method: "POST"
+                    fetch("/chatroom", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            roomname: roomName,
+                            public: publicRadio.checked.toString()
+                        })
                     }).then (async res => {
                         if(res.status === 200){
                             window.location.href = "/chatroom/" + (await res.text());

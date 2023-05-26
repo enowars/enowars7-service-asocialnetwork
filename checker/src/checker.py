@@ -73,7 +73,7 @@ async def retrieveMessage(task, client, recipient, logger, username, password):
 
 async def createChatroom(task, name, private, client, cookie, logger):
     logger.debug(f"Creating private chatroom {name}")
-    r = await client.post(f"{getUrl(task)}/chatroom?roomname={name}&public={'false' if private else 'true'}", cookies=cookie)
+    r = await client.post(f"{getUrl(task)}/chatroom", json={'roomname': name, 'public': 'false' if private else 'true'}, cookies=cookie)
     assert_equals(r.status_code, 200, "creating private chatroom failed")
     return r.text
 
@@ -105,7 +105,7 @@ async def putflag1(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_d
     username = secrets.token_hex(32)
     password = secrets.token_hex(32)
     cookie = await register(task, client, username, password, logger)
-    roomName = secrets.token_hex(32)
+    roomName = secrets.token_hex(10)
     roomUrl = await createChatroom(task, roomName, True, client, cookie, logger)
     logger.debug(f"Created private chatroom {roomName} with url {roomUrl}")
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
@@ -150,7 +150,7 @@ async def putnoise1(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain
     username = secrets.token_hex(32)
     password = secrets.token_hex(32)
     cookie = await register(task, client, username, password, logger)
-    roomName = secrets.token_hex(32)
+    roomName = secrets.token_hex(10)
     roomUrl = await createChatroom(task, roomName, False, client, cookie, logger)
     logger.debug(f"Created private chatroom {roomName} with url {roomUrl}")
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
@@ -178,7 +178,7 @@ async def putnoise2(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain
     username = secrets.token_hex(32)
     password = secrets.token_hex(32)
     cookie = await register(task, client, username, password, logger)
-    roomName = secrets.token_hex(32)
+    roomName = secrets.token_hex(10)
     roomUrl = await createChatroom(task, roomName, True, client, cookie, logger)
     logger.debug(f"Created private chatroom {roomName} with url {roomUrl}")
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
@@ -219,7 +219,7 @@ async def getnoise3(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
     except KeyError:
         raise MumbleException("Missing database entry from putnoise")
     cookie = await login(task, client, username, password, logger)
-    r = await client.get(f"{getUrl(task)}/home", cookies=cookie)
+    r = await client.get(f"{getUrl(task)}", cookies=cookie)
     logger.debug(f"Got home page: {r.text} looking for {profilePic}")
     assert_in(f"/assets/profile-pics/{profilePic}.jpg", r.text, "profile picture missing from home")
 
@@ -334,14 +334,10 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     payload = encode(exploitMessage.format(task.address), target, logger)
     r = await client.post(f"{getUrl(task)}/messages/", json={"recipient": target, "message": payload}, cookies=cookie)
     assert_equals(r.status_code, 200, "exploit failed")
-    start = time.time()
     xss_test(task, logger)
-    logger.debug(f"took {time.time() - start} seconds")
     while not result[0]:
         time.sleep(0.01)
-    startShutdown = time.time()
     webServer[0].shutdown()
-    logger.debug(f"took {time.time() - startShutdown} seconds to shutdown")
     server_thread.join()
     logger.debug('Server stopped')
     if flag := searcher.search_flag(result[0]):

@@ -2,29 +2,37 @@ const express = require('express');
 const router = express.Router();
 const Profile = require('../models/profile');
 router.get('/', async (req, res, next) => {
-    if(req.cookies.session === undefined) {
+    if(!req.user) {
         res.redirect('/login');
         return;
     }
     res.page = 'profilePicture';
-    let profile = await Profile.find({user: req.user._id});
-    profile = profile[0];
-    res.params = {selected: profile.image};
-    next();
-});
-router.post('/', async (req, res) => {
-    if(req.cookies.session === undefined) {
-        res.redirect('/login');
+    try{
+        let profile = await Profile.find({user: req.user._id});
+        profile = profile[0];
+        res.params = {selected: profile.image};
+        next();
+    }
+    catch(e) {
+        res.status(500).send('Internal server error');
         return;
     }
-    let profile = await Profile.find({user: req.user._id});
-    if(!profile[0]) {
-        profile = new Profile({image: req.query.pic, user: req.user._id});
-        await profile.save();
+});
+router.post('/', async (req, res) => {
+    try{
+        let profile = await Profile.find({user: req.user._id});
+        if(!profile[0]) {
+            profile = new Profile({image: req.query.pic, user: req.user._id});
+            await profile.save();
+        }
+        else {
+            await Profile.findOneAndUpdate({user: req.user._id}, {image: req.query.pic}, {new: true});
+        }
+        res.send('Profile picture updated');
     }
-    else {
-        profile = await Profile.findOneAndUpdate({user: req.user._id}, {image: req.query.pic}, {new: true});
+    catch(e) {
+        res.status(500).send('Internal server error');
+        return;
     }
-    res.send('ok');
 });
 module.exports = router;

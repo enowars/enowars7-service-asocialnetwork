@@ -98,6 +98,9 @@
             function submitMessage(){
                 let message = document.getElementById('message').value;
                 let recipient = document.getElementById('recipient').value;
+                if(recipient === "" || message === ""){
+                    return;
+                }
                 fetch('/messages', {
                     method: 'POST',
                     headers: {
@@ -105,9 +108,7 @@
                     },
                     body: JSON.stringify({message: fun2(message, recipient), recipient: recipient})
                 }).then(res => {
-                    if(Number(res.status) === 200){
-                        return res.text();
-                    }
+                    return res.text();
                 }).then((html) => {
                     var parser = new DOMParser();
                     document.body = parser.parseFromString(html, "text/html").body;
