@@ -181,6 +181,7 @@ app.post('/login', async (req, res, next) => {
     }
     else{
         res.page = 'login';
+        res.status(401);
         res.params = {error: 'Invalid username or password'};
         next();
     }

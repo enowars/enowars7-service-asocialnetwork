@@ -79,7 +79,12 @@
                     fetch("/chatroom?roomname=" + roomName + "&public=" + publicRadio.checked, {
                         method: "POST"
                     }).then (async res => {
-                        window.location.href = "/chatroom/" + (await res.text());
+                        if(res.status === 200){
+                            window.location.href = "/chatroom/" + (await res.text());
+                        }
+                        else{
+                            alert(await res.text());
+                        }
                     });
                 }
             }

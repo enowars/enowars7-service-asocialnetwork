@@ -107,11 +107,11 @@ router.post('/', async (req, res) => {
     chatroom = chatroom[0];
     console.log('creating room' + req.query.roomname)
     if(typeof req.query.roomname !== 'string'){
-        res.send('room name must be a string');
+        res.send('Room Name must be a string');
         return;
     }
     if(!req.query.roomname){
-        res.send('room name is required');
+        res.send('Room Name is required');
         return;
     }
     if(!req.query.public){
@@ -132,9 +132,13 @@ router.post('/', async (req, res) => {
             id: crypto.createHash('sha256').update(req.query.roomname).digest('hex')
         });
         await chatroom.save();
+        res.status(200);
+        res.send(chatroom.id);
     }
-    res.status(200);
-    res.send(chatroom.id);
+    else{
+        res.status(400);
+        res.send('Room already exists');
+    }
 });
 router.post('/:roomId/messages', async (req, res) => {
    let chatroom = await Chatroom.find({id: req.params.roomId});
