@@ -82,8 +82,8 @@ async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_d
     flag = task.flag
     recipient = "admin"
     username, password, cookie = await sendMessage(task, client, recipient, flag, logger)
-    r = await retrieveMessage(task, client, recipient, logger, username, password)
-    assert_in(flag, r.text, "flag missing from messages")
+    # r = await retrieveMessage(task, client, recipient, logger, username, password)
+    # assert_in(flag, r.text, "flag missing from messages")
     await chain_db.set("userdata", (username, password, flag))
     return json.dumps({'username': username})
 
@@ -95,7 +95,8 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
     r = await retrieveMessage(task, client, "admin", logger, username, password)
-    assert_in(task.flag, r.text, "flag missing from note")
+    logger.debug(f"Got message: {r.text}")
+    assert_in(task.flag, r.text, "flag missing from messages")
     # xss(task, start, logger)
     
     
@@ -339,8 +340,8 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     target = json.loads(task.attack_info)['username']
     payload = encode(exploitMessage.format(task.address), target, logger)
     r = await client.post(f"{getUrl(task)}/messages/", json={"recipient": target, "message": payload}, cookies=cookie)
-    logger.debug(f"Message time: {time.time() - startMessage}")
     assert_equals(r.status_code, 200, "exploit failed")
+    logger.debug(f"Message time: {time.time() - startMessage}")
     startExploit = time.time()
     xss_test(task, logger)
     logger.debug(f"Exploit time: {time.time() - startExploit}")
