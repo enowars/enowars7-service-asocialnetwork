@@ -317,15 +317,9 @@ def server(logger):
                 exploit.write(post_data)
 
     webServer = HTTPServer((HOST, PORT), ExploitServer)
-    try:
-        webServer.serve_forever()
-    except SIGTERM:
-        logger.debug("Server killed")
-        pass
-    webServer.server_close()
-    print("Server stopped.")
+    webServer.serve_forever()
 
-def getFlag(logger):
+def getFlag():
     while True:
         if os.path.isfile("/checker/flag.txt") and os.access("/checker/flag.txt", os.R_OK):
             with open("/checker/flag.txt", "r") as flag:
@@ -353,12 +347,9 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     logger.debug(f"Exploit time: {time.time() - startExploit}")
     startResult = time.time()
     logger.debug(f"Result time: {time.time() - startResult}")
-    flagText = getFlag(logger)
+    flagText = getFlag()
     flag = searcher.search_flag(flagText)
-    # if os.path.isfile("/checker/flag.txt"):
-    #     os.remove("/checker/flag.txt")
-    process.terminate()
-    # process.join()
+    process.kill()
     logger.debug(f"Returning {time.time() - start}")
     return flag
 
