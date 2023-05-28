@@ -18,13 +18,8 @@ const profileRouter = require('./routers/profileRouter');
 const profilePicRouter = require('./routers/profilePictureRouter');
 const chatroomRouter = require('./routers/chatroomRouter');
 app.use(cookieParser());
-app.get('/assets/profile-pics/:picture', (req, res) => {
-    res.sendFile(__dirname + '/assets/profile-pics/' + req.params.picture);
-});
 
-app.get('/style/:styleName', (req, res) => {
-    res.sendFile(__dirname + '/views/style/' + req.params.styleName);
-});
+app.use(express.static(__dirname + '/public'));
 
 app.use(async (req, res, next) => {
     if(req.method === 'POST' && (req.url === '/register' || req.url === '/login')) {
