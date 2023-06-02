@@ -81,7 +81,7 @@ async def createChatroom(task, name, public, client, cookie, logger):
     return r.text
 
 @checker.putflag(0)
-async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> str:
+async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> Optional[str]:
     flag = task.flag
     recipient = "admin"
     username, password, cookie = await sendMessage(task, client, recipient, flag, logger)
@@ -95,13 +95,20 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
         username, password, flag = await db.get("userdata")
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
-    r = await retrieveMessage(task, client, "admin", logger, username, password)
-    assert_in(task.flag, r.text, "flag missing from messages")
-    # xss(task, start, logger)
+    driver.get(f"{getUrl(task)}/logout")
+    driver.get(f"{getUrl(task)}/login")
+    driver.execute_script(f"document.getElementById('username').value = '{username}';")
+    driver.execute_script(f"document.getElementById('password').value = '{password}';")
+    driver.execute_script("document.getElementsByTagName('form')[0].submit();")
+    driver.get(f"{getUrl(task)}/messages/admin")
+    assert_in(task.flag, driver.page_source, "flag missing from messages")
+    while len(driver.page_source.split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
+            and time.time() - start < ((task.timeout / 1000) - 1):
+        driver.get(f"{getUrl(task)}/messages/admin")
     
     
 @checker.putflag(1)
-async def putflag1(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> str:
+async def putflag1(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> Optional[str]:
     flag = task.flag
     username = secrets.token_hex(32)
     password = secrets.token_hex(32)
@@ -333,22 +340,6 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     flag = searcher.search_flag(flagText)
     process.kill()
     return flag
-
-
-
-def xss(task, start, logger):
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless=new')
-    driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
-    driver.get(f"{getUrl(task)}/messages/admin")
-    reloads = 0
-    while True:
-        if time.time() - start > ((task.timeout / 1000) - 1):
-            break
-        driver.refresh()
-        reloads += 1
-    logger.debug(reloads)
-    driver.quit()
 
 
 def xss_test(task, logger):
