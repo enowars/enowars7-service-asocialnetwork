@@ -17,6 +17,7 @@ const messageRouter = require('./routers/messageRouter');
 const profileRouter = require('./routers/profileRouter');
 const profilePicRouter = require('./routers/profilePictureRouter');
 const chatroomRouter = require('./routers/chatroomRouter');
+const friendRouter = require('./routers/friendRouter');
 app.use(cookieParser());
 
 app.use(express.static(__dirname + '/public'));
@@ -40,6 +41,7 @@ app.use('/messages', messageRouter);
 app.use('/profile', profileRouter);
 app.use('/profile-picture', profilePicRouter);
 app.use('/chatroom', chatroomRouter);
+app.use('/friends', friendRouter);
 app.get('/', async (req, res, next) => {
     if(!req.user) {
         res.redirect('/login');
@@ -195,6 +197,7 @@ app.use((req, res, next) => {
         res.render(res.page, res.params);
     }
 });
+
 app.listen(3000, () => {
     console.log("Listening on port 3000")
 });

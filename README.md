@@ -1,3 +1,4 @@
 TODO:
 ====================
-1. Add XSS functionality in getflag + Make getflag password random
+1. Make getflag password random
+2. Only allow profile access for friends

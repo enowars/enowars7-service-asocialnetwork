@@ -1,0 +1,15 @@
+.addFriendButton{
+    float: right;
+}
+.addModalButton{
+    float: right;
+}
+.avatar{
+    width: 100px;
+    height: 100px;
+    margin-right: 10px;
+}
+.link{
+    margin-top: 38px;
+    margin-bottom: 38px;
+}
