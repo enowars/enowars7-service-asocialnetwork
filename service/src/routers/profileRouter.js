@@ -3,6 +3,7 @@ const router = express.Router();
 const Profile = require('../models/profile');
 const User = require('../models/user');
 const Chatroom = require('../models/chatroom');
+const Friend = require('../models/friend');
 async function getWall(profile) {
     let wall = [].concat(profile.wall).reverse();
     for(let i = 0; i < wall.length; i++) {
@@ -10,6 +11,13 @@ async function getWall(profile) {
         wall[i].image = (await Profile.find({user: wall[i].sender._id}))[0].image;
     }
     return wall;
+}
+async function sendError(errorMessage, req, res){
+    let profile = await Profile.find({user: req.user._id});
+    profile = profile[0];
+    let rooms = await Chatroom.find({members: req.user._id});
+    res.render('profile',{error: errorMessage, selected: profile.image, user: req.user, visitor: req.user, messages: await getWall(profile), rooms: rooms, userName: req.user.userName});
+    return;
 }
 router.use(async (req, res, next) => {
     if(!req.user) {
@@ -34,11 +42,13 @@ router.get('/', async (req, res, next) => {
 router.get('/:userName', async (req, res, next) => {
     try{
         let user = (await User.find({userName: req.params.userName}))[0];
-        if(user === undefined) {
-            let profile = await Profile.find({user: req.user._id});
-            profile = profile[0];
-            let rooms = await Chatroom.find({members: req.user._id});
-            res.render('profile',{error: 'User not found', selected: profile.image, user: req.user, visitor: req.user, messages: await getWall(profile), rooms: rooms, userName: req.user.userName});
+        if(!user) {
+            await sendError('User not found', req, res);
+            return;
+        }
+        let friend = await Friend.find({$or: [{initiator: req.user._id, recipient: user._id}, {initiator: user._id, recipient: req.user._id}]});
+        if(friend.length === 0 && req.user.userName !== req.params.userName) {
+            await sendError('You are not friends with this user', req, res);
             return;
         }
         let profile = await Profile.find({user: user._id});

