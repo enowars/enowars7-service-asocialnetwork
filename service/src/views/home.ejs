@@ -86,11 +86,13 @@
                             public: publicRadio.checked.toString()
                         })
                     }).then (async res => {
-                        if(res.status === 200){
-                            window.location.href = "/chatroom/" + (await res.text());
+                        let text = await res.text();
+                        console.log(res.status, text);
+                        if(res.statusText === 'OK'){
+                            window.location.href = "/chatroom/" + (text);
                         }
                         else{
-                            alert(await res.text());
+                            alert(text);
                         }
                     });
                 }

@@ -12,28 +12,30 @@
     <%- include('navbar') %>
     <main>
         <input type="hidden" id="lastMessageTime" value="<%=lastMessage%>">
-        <div class="container">
             <div class="row">
                 <div class="col-12">
                     <h1><%=chatroom.name%></h1>
                     <div class="chatroom">
                         <div class="messages">
-                            <%chatroom.messages.forEach(function(message){%>
+                            <%for(let i = 0; i < chatroom.messages.length; i++){%>
                                 <div class="message">
                                     <div class="author">
-                                        <img src="<%=message.user.avatar%>" alt="" class="profile-pic">
-                                        <span><%=message.user.userName%></span>
+                                        <%if(i === 0 || chatroom.messages[i].user.userName !== chatroom.messages[i-1].user.userName){%>
+                                            <img src="<%=chatroom.messages[i].user.avatar%>" alt="" class="profile-pic">
+                                            <span><%=chatroom.messages[i].user.userName%></span>:
+                                        <%} else{%>
+                                            <span style="display:none"><%=chatroom.messages[i].user.userName%></span>
+                                        <%}%>
                                     </div>
-                                    <p><%=message.message%></p>
+                                    <p><%=chatroom.messages[i].message%></p>
                                 </div>
-                            <%})%>
+                            <%}%>
                         </div>
                         <input type="text" name="message" placeholder="Type your message here...">
                         <button type="submit" onclick="submitMessage()">Send</button>
                     </div>
                 </div>
             </div>
-        </div>
     </main>
     <script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha384-xBuQ/xzmlsLoJpyjoggmTEz8OWUFM0/RC5BsqQBDX2v5cMvDHcMakNTNrHIW2I5f" crossorigin="anonymous"></script>    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
@@ -82,10 +84,24 @@
             messages.forEach(function(message) {
                 // Create a div for the message
                 var messageDiv = $('<div class="message">');
-                // Add the author div as a child of the messageDiv
-                messageDiv.append('<div class="author"><img src="' + message.user.avatar + '" alt="" class="profile-pic"><span>' + message.user.userName + '</span></div>');
+                var span = $('<span>');
+                var author = $('<div class="author">');
+                span.text(message.user.userName);
+                // Add the author div as a child of the messageDiv if the author is different from the previous message
+                if($('.messages').children().last().find('.author').find('span').text() !== message.user.userName){
+                    author.append('<img src="' + message.user.avatar + '" alt="" class="profile-pic">');
+                    author.append(span);
+                    author.append(':');
+                    messageDiv.append(author);
+                } else{
+                    span.css('display', 'none');
+                    author.append(span);
+                    messageDiv.append(author);
+                }
                 // Add the message to the div
-                messageDiv.append('<p>' + message.message + '</p>');
+                var messageText = $('<p>');
+                messageText.text(message.message);
+                messageDiv.append(messageText);
                 // Add the div to the messages
                 $('.messages').append(messageDiv);
                 if(new Date(message.date).valueOf() > latestMessageTime) {

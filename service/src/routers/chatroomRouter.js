@@ -101,7 +101,7 @@ router.get('/:roomId/messages/:lastMessageTime', async (req, res) => {
             res.status(400).send('Chatroom not found');
             return;
         }
-        if(!req.query.lastMessageTime){
+        if(!req.params.lastMessageTime){
             res.status(400).send('lastMessageTime is required');
             return;
         }
@@ -126,23 +126,23 @@ router.post('/', async (req, res) => {
         let chatroom = await Chatroom.find({name: req.body.roomname});
         chatroom = chatroom[0];
         if(typeof req.body.roomname !== 'string'){
-            res.send('Room Name must be a string');
+            res.status(400).send('Room Name must be a string');
             return;
         }
         if(!req.body.roomname){
-            res.send('Room Name is required');
+            res.status(400).send('Room Name is required');
             return;
         }
         if(req.body.roomname.length > 20){
-            res.send('Room Name must be less than 20 characters');
+            res.status(400).send('Room Name must be less than 20 characters');
             return;
         }
         if(!req.body.public){
-            res.send('public is required');
+            res.status(400).send('public is required');
             return;
         }
         if(req.body.public !== 'true' && req.body.public !== 'false'){
-            res.send('public must be true or false');
+            res.status(400).send('public must be true or false');
             return;
         }
         if(!chatroom) {
