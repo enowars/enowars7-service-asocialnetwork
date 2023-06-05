@@ -18,7 +18,9 @@ from enochecker3 import (
 from enochecker3.utils import FlagSearcher, assert_equals, assert_in
 import time
 from selenium import webdriver
-from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import multiprocessing
 import hashlib
@@ -117,6 +119,7 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     assert_in(task.flag, r.text, "flag missing from messages")
     driver.get(f"{getUrl(task)}/logout")
     driver.get(f"{getUrl(task)}/login")
+    WebDriverWait(driver, 5).until(EC.visibility_of_all_elements_located((By.CSS_SELECTOR, "form")))
     driver.execute_script(f"document.getElementById('username').value = '{username}';")
     driver.execute_script(f"document.getElementById('password').value = '{password}';")
     driver.execute_script("document.getElementsByTagName('form')[0].submit();")
@@ -310,9 +313,11 @@ async def havoc0(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: C
 @checker.havoc(1)
 async def havoc1(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
                  logger: LoggerAdapter) -> None:
+    username = secrets.token_hex(32)
     password = secrets.token_hex(32)
-    cookie, username = await register(task, client, password, logger)
-    r = await client.post(f"{getUrl(task)}/register", json={"username": username, "password": password})
+    r = await client.post(f"{getUrl(task)}/register", json={"username": username, "password": password, "confirmPassword": password})
+    assert_equals(r.status_code, 302, "register failed")
+    r = await client.post(f"{getUrl(task)}/register", json={"username": username, "password": password, "confirmPassword": password})
     assert_equals(r.status_code, 400, "register with duplicate credentials succeeded")
 
 
@@ -343,7 +348,6 @@ async def havoc4(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: C
     password = secrets.token_hex(32)
     cookie, _ = await register(task, client, password, logger)
     r = await client.get(f"{getUrl(task)}/profile/admin", cookies=cookie)
-    logger.debug(r.text, r.status_code, 'havoc4')
     assert_equals(r.status_code, 400, "getting profile of admin succeeded")
 
 
