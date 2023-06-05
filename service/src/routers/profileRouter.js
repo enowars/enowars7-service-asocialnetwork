@@ -16,7 +16,7 @@ async function sendError(errorMessage, req, res){
     let profile = await Profile.find({user: req.user._id});
     profile = profile[0];
     let rooms = await Chatroom.find({members: req.user._id});
-    res.render('profile',{error: errorMessage, selected: profile.image, user: req.user, visitor: req.user, messages: await getWall(profile), rooms: rooms, userName: req.user.userName});
+    res.status(400).render('profile',{error: errorMessage, selected: profile.image, user: req.user, visitor: req.user, messages: await getWall(profile), rooms: rooms, userName: req.user.userName});
     return;
 }
 router.use(async (req, res, next) => {

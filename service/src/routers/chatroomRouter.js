@@ -44,6 +44,9 @@ router.get('/:roomId', async (req, res, next) => {
 async function newMessagesAvailable(roomId, lastMessageDate){
     let chatroom = await Chatroom.find({id: roomId});
     chatroom = chatroom[0];
+    if(!chatroom) {
+        return false;
+    }
     if(chatroom.messages.length === 0) {
         return false;
     }
@@ -110,6 +113,9 @@ router.get('/:roomId/messages/:lastMessageTime', async (req, res) => {
         waitUntilNewMessagesOrTimeout(async function(newMessages) {
             // Return new messages to the client
             let chatroom = (await Chatroom.find({id: req.params.roomId}))[0];
+            if(!chatroom) {
+                return;
+            }
             chatroom.users.splice(chatroom.users.indexOf(req.user._id), 1);
             chatroom.save();
             if(!res.headersSent)
