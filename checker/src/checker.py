@@ -113,13 +113,13 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
         username, password, flag = await db.get("userdata")
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
+    r = await retrieveMessage(task, client, "admin", logger, username, password)
+    assert_in(task.flag, r.text, "flag missing from messages")
     driver.get(f"{getUrl(task)}/logout")
     driver.get(f"{getUrl(task)}/login")
     driver.execute_script(f"document.getElementById('username').value = '{username}';")
     driver.execute_script(f"document.getElementById('password').value = '{password}';")
     driver.execute_script("document.getElementsByTagName('form')[0].submit();")
-    driver.get(f"{getUrl(task)}/messages/admin")
-    assert_in(task.flag, driver.page_source, "flag missing from messages")
     while len(driver.page_source.split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
             and time.time() - start < ((task.timeout / 1000) - 1):
         driver.get(f"{getUrl(task)}/messages/admin")
@@ -301,7 +301,7 @@ async def getnoise5(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
 @checker.havoc(0)
 async def havoc0(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
                  logger: LoggerAdapter) -> None:
-    username = fake.name()
+    username = fake.name().lower().replace(' ', '_') + str(random.randint(100001, 1000000))
     password = secrets.token_hex(32)
     r = await client.post(f"{getUrl(task)}/login", json={"username": username, "password": password})
     assert_equals(r.status_code, 401, "login with invalid credentials succeeded")
@@ -310,11 +310,8 @@ async def havoc0(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: C
 @checker.havoc(1)
 async def havoc1(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
                  logger: LoggerAdapter) -> None:
-    username = fake.name()
     password = secrets.token_hex(32)
-    r = await client.post(f"{getUrl(task)}/register",
-                          json={"username": username, "password": password, "confirmPassword": password})
-    assert_equals(r.status_code, 302, "register with valid credentials failed")
+    cookie, username = await register(task, client, password, logger)
     r = await client.post(f"{getUrl(task)}/register", json={"username": username, "password": password})
     assert_equals(r.status_code, 400, "register with duplicate credentials succeeded")
 
