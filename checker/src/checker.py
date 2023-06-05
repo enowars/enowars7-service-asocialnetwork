@@ -87,7 +87,7 @@ async def retrieveMessage(task, client, recipient, logger, username, password):
     logger.debug(f"Retrieving Message for {username}:{password}")
     r = await client.get(f"{getUrl(task)}/messages/{recipient}", cookies=cookie)
     assert_equals(r.status_code, 200, "retrieving message failed")
-    return r
+    return r, cookie
 
 
 async def createChatroom(task, name, public, client, cookie, logger):
@@ -115,14 +115,12 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
         username, password, flag = await db.get("userdata")
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
-    r = await retrieveMessage(task, client, "admin", logger, username, password)
+    r, cookie = await retrieveMessage(task, client, "admin", logger, username, password)
     assert_in(task.flag, r.text, "flag missing from messages")
     driver.get(f"{getUrl(task)}/logout")
-    driver.get(f"{getUrl(task)}/login")
-    WebDriverWait(driver, 5).until(EC.visibility_of_all_elements_located((By.CSS_SELECTOR, "form")))
-    driver.execute_script(f"document.getElementById('username').value = '{username}';")
-    driver.execute_script(f"document.getElementById('password').value = '{password}';")
-    driver.execute_script("document.getElementsByTagName('form')[0].submit();")
+    driver.delete_all_cookies()
+    driver.add_cookie({'name': 'session', 'value': cookie.get('session')})
+    driver.get(f"{getUrl(task)}/messages/admin")
     while len(driver.page_source.split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
             and time.time() - start < ((task.timeout / 1000) - 1):
         driver.get(f"{getUrl(task)}/messages/admin")
@@ -169,7 +167,7 @@ async def getnoise0(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
         username, password, noise = await db.get("noise")
     except KeyError:
         raise MumbleException("Missing database entry from putnoise")
-    r = await retrieveMessage(task, client, "admin", logger, username, password)
+    r, _ = await retrieveMessage(task, client, "admin", logger, username, password)
     assert_in(noise, r.text, "noise missing from note")
 
 
