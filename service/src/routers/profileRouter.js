@@ -46,7 +46,7 @@ router.get('/:userName', async (req, res, next) => {
             await sendError('User not found', req, res);
             return;
         }
-        let friend = await Friend.find({$or: [{initiator: req.user._id, recipient: user._id}, {initiator: user._id, recipient: req.user._id}]});
+        let friend = await Friend.find({$or: [{initiator: req.user._id, recipient: user._id, status: "accepted"}, {initiator: user._id, recipient: req.user._id, status: "accepted"}]});
         if(friend.length === 0 && req.user.userName !== req.params.userName) {
             await sendError('You are not friends with this user', req, res);
             return;
