@@ -205,7 +205,6 @@ async function cleanup(){
     try{
         User.find( { createdAt : {"$lt" : new Date(Date.now() - 15 * 60 * 1000) } }, {_id: 1})
             .then(async (users) => {
-                console.log(users.length)
                 await Profile.deleteMany({user: {$in: users}});
                 await Friend.deleteMany({$or: [{initiator: {$in: users}}, {recipient: {$in: users}}]});
                 await Message.deleteMany({$or: [{sender: {$in: users}}, {recipient: {$in: users}}]});
