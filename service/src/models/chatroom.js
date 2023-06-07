@@ -7,6 +7,6 @@ let chatroomSchema = new Schema({
     members: [{type: Schema.Types.ObjectId, ref: 'User'}],
     public: Boolean,
     id: String,
-    created: {type: Date, default: Date.now, expires: 60*20}
+    createdAt: {type: Date, default: Date.now}
 });
 module.exports = mongoose.model('Chatroom', chatroomSchema);
