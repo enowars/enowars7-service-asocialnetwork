@@ -18,9 +18,7 @@ from enochecker3 import (
 from enochecker3.utils import FlagSearcher, assert_equals, assert_in
 import time
 from selenium import webdriver
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import multiprocessing
 import hashlib
@@ -38,8 +36,8 @@ getUrl = lambda task: f"http://{task.address + ':' + str(SERVICE_PORT)}"
 chrome_options = webdriver.ChromeOptions()
 chrome_options.add_argument("--headless")
 chrome_options.add_argument('--no-sandbox')
-driver = webdriver.Chrome('/usr/bin/chromedriver', options=chrome_options)
-driver.implicitly_wait(0.5)
+service = Service('/usr/bin/chromedriver')
+driver = webdriver.Chrome(service=service, options=chrome_options)
 
 def encode(message, recipient, logger):
     message = message.encode('utf-8').hex()
@@ -115,14 +113,13 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
         username, recipient, password, flag = await db.get("userdata")
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
-    r, cookie = await retrieveMessage(task, client, recipient, logger, username, password)
-    assert_in(task.flag, r.text, "flag missing from messages")
-    driver.delete_all_cookies()
+    cookie = await login(task, client, username, password, logger)
     driver.get(f"{getUrl(task)}/login")
     driver.add_cookie({'name': 'session', 'value': cookie.get('session')})
     driver.get(f"{getUrl(task)}/messages/{recipient}")
+    assert_in(task.flag, driver.page_source, "flag missing from messages")
     while len(driver.page_source.split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
-            and time.time() - start < ((task.timeout / 1000) - 1):
+            and time.time() - start < ((task.timeout / 1000) - 0.2):
         driver.get(f"{getUrl(task)}/messages/{recipient}")
 
 

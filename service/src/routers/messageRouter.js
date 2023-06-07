@@ -13,21 +13,22 @@ router.use(async (req, res, next) => {
         req.partners = await getPartners(req.user);
     }
     catch (e) {
+        console.log(e);
         res.status(500).send('Internal server error');
         return;
     }
     next();
 });
 async function getMessages(user, partner){
-    const messages = await Message.find({ $or: [{ sender: user._id, recipient: partner._id}, { recipient: user._id, sender: partner._id }] });
+    const messages = await Message.find({ $or: [{ sender: user._id, recipient: partner._id}, { recipient: user._id, sender: partner._id }] }).populate('sender').populate('recipient');
     let filteredMessages = [];
     for(const message of messages) {
         let newMessage =
             {
                 text:     message.message,
-                createdAt:   message.createdAt.toLocaleTimeString() + ' ' + message.createdAt.toLocaleDateString(),
-                sender:      await getUserNameById(message.sender),
-                recipient:   await getUserNameById(message.recipient),
+                createdAt:   message.createdAt.toLocaleString(),
+                sender:      message.sender,
+                recipient:   message.recipient,
                 id: String(message._id)
             };
         filteredMessages.push(newMessage);
@@ -35,26 +36,21 @@ async function getMessages(user, partner){
     return filteredMessages;
 }
 async function getPartners(user){
-    const messages = await Message.find({ $or: [{ sender: user._id }, { recipient: user._id }] });
+    const messages = await Message.find({ $or: [{ sender: user._id }, { recipient: user._id }] }).populate('sender').populate('recipient');
     let filteredMessages = [];
     for(const message of messages) {
         let newMessage = {};
-        let recipient = (await User.findById(message.recipient)).userName;
-        if(user.userName === recipient) {
-            let profile = await Profile.findOne({user: message.sender});
-            newMessage.partner = {name: (await User.findById(message.sender)).userName, id: message.sender, profilePic : profile.image};
+        if(user.userName === message.recipient.userName) {
+            newMessage = {name: message.recipient.userName, id: message.sender._id};
         }
         else{
-            let profile = await Profile.findOne({user: message.recipient});
-            newMessage.partner = {name: recipient, id: message.recipient, profilePic :  profile.image};
+            newMessage = {name: message.recipient.userName, id: message.recipient._id};
         }
         filteredMessages.push(newMessage);
     }
-    return filteredMessages.map(message => {
-        return message.partner;
-    }).filter((partner, index, self) =>
+    return filteredMessages.filter((partner, index, self) =>
         index === self.findIndex(p => p.name === partner.name)
-    );
+    )
 }
 function fun(a, b){
     let tmp = "";
@@ -110,6 +106,7 @@ router.post('/', async (req, res, next) => {
         });
     }
     catch (e) {
+        console.log(e);
         res.status(500).send('Internal server error');
         return;
     }
@@ -123,7 +120,7 @@ router.get('/', async (req, res, next) => {
 });
 router.get('/:partner', async (req, res, next) => {
     try{
-        let partner = (await User.findOne().byUserName(req.params.partner))[0];
+        let partner = (await User.find({userName: req.params.partner}))[0];
         if(!partner) {
             res.status(404);
             res.params = {new: true, messages: false, error: 'Recipient does not exist'};
@@ -135,6 +132,7 @@ router.get('/:partner', async (req, res, next) => {
         next();
     }
     catch (e) {
+        console.log(e);
         res.status(500).send('Internal server error');
         return;
     }
@@ -142,22 +140,17 @@ router.get('/:partner', async (req, res, next) => {
 async function getUnreadMessages(user){
     const unreadMessages = await Message.find({read: false, recipient: user._id});
     if(unreadMessages.length === 0) return false;
-    let sender;
-    for(const message of unreadMessages) {
-        if(message.sender.toString() !== user._id.toString()) {
-            sender = message.sender;
-            break;
-        }
-    }
+    let sender = unreadMessages[0].sender;
     let unreadText = "";
     for(const message of unreadMessages) {
         if(message.sender.toString() === sender.toString()) {
             unreadText += message.message + '\n';
             message.read = true;
             message.save();
+            break;
         }
     }
-    return {sender: await User.findById(sender), text: unreadText};
+    return {sender: (await User.find({_id: sender}))[0], text: unreadText};
 }
 router.use( async (req, res, next) => {
     res.page = 'messages';
@@ -167,6 +160,7 @@ router.use( async (req, res, next) => {
         next();
     }
     catch (e) {
+        console.log(e);
         res.status(500).send('Internal server error');
         return;
     }

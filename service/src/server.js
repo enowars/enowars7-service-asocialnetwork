@@ -29,7 +29,7 @@ app.use(async (req, res, next) => {
         return;
     }
     if(req.cookies.session !== undefined) {
-        let user = await User.findOne().bySession(req.cookies.session);
+        let user = await User.find({sessionId: req.cookies.session});
         if(user.length === 0 && req.url !== '/register' && req.url !== '/login') {
             res.redirect('/register');
             return;
