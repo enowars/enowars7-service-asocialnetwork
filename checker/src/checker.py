@@ -118,6 +118,7 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     r, cookie = await retrieveMessage(task, client, recipient, logger, username, password)
     assert_in(task.flag, r.text, "flag missing from messages")
     driver.delete_all_cookies()
+    driver.get(f"{getUrl(task)}/login")
     driver.add_cookie({'name': 'session', 'value': cookie.get('session')})
     driver.get(f"{getUrl(task)}/messages/{recipient}")
     while len(driver.page_source.split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
