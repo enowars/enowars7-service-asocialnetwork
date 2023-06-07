@@ -102,28 +102,28 @@ async def createChatroom(task, name, public, client, cookie, logger):
 async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> \
 Optional[str]:
     flag = task.flag
-    recipient = "admin"
+    cookie, recipient = await register(task, client, secrets.token_hex(32), logger)
     username, password, cookie = await sendMessage(task, client, recipient, flag, logger)
-    await chain_db.set("userdata", (username, password, flag))
-    return json.dumps({'username': username})
+    await chain_db.set("userdata", (username, recipient, password, flag))
+    return json.dumps({'username': username, 'recipient': recipient})
 
 
 @checker.getflag(0)
 async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
     start = time.time()
     try:
-        username, password, flag = await db.get("userdata")
+        username, recipient, password, flag = await db.get("userdata")
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
-    r, cookie = await retrieveMessage(task, client, "admin", logger, username, password)
+    r, cookie = await retrieveMessage(task, client, recipient, logger, username, password)
     assert_in(task.flag, r.text, "flag missing from messages")
     driver.get(f"{getUrl(task)}/logout")
     driver.delete_all_cookies()
     driver.add_cookie({'name': 'session', 'value': cookie.get('session')})
-    driver.get(f"{getUrl(task)}/messages/admin")
+    driver.get(f"{getUrl(task)}/messages/{recipient}")
     while len(driver.page_source.split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
             and time.time() - start < ((task.timeout / 1000) - 1):
-        driver.get(f"{getUrl(task)}/messages/admin")
+        driver.get(f"{getUrl(task)}/messages/{recipient}")
 
 
 @checker.putflag(1)
@@ -156,18 +156,18 @@ async def getflag1(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
 async def putnoise0(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
                     logger: LoggerAdapter) -> None:
     noise = generateNoise()
-    recipient = "admin"
+    cookie, recipient = await register(task, client, secrets.token_hex(32), logger)
     username, password, cookie = await sendMessage(task, client, recipient, noise, logger)
-    await chain_db.set("noise", (username, password, noise))
+    await chain_db.set("noise", (username, recipient, password, noise))
 
 
 @checker.getnoise(0)
 async def getnoise0(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
     try:
-        username, password, noise = await db.get("noise")
+        username, recipient, password, noise = await db.get("noise")
     except KeyError:
         raise MumbleException("Missing database entry from putnoise")
-    r, _ = await retrieveMessage(task, client, "admin", logger, username, password)
+    r, _ = await retrieveMessage(task, client, recipient, logger, username, password)
     assert_in(noise, r.text, "noise missing from note")
 
 
@@ -345,8 +345,9 @@ async def havoc4(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: C
                     logger: LoggerAdapter) -> None:
     password = secrets.token_hex(32)
     cookie, _ = await register(task, client, password, logger)
-    r = await client.get(f"{getUrl(task)}/profile/admin", cookies=cookie)
-    assert_equals(r.status_code, 400, "getting profile of admin succeeded")
+    _, newUser = await register(task, client, password, logger)
+    r = await client.get(f"{getUrl(task)}/profile/{newUser}", cookies=cookie)
+    assert_equals(r.status_code, 400, "getting profile of non-friend succeeded")
 
 
 fakePayloads = [
@@ -435,7 +436,7 @@ def xss_test(task, logger):
     driver.execute_script(f"document.getElementById('username').value = '{json.loads(task.attack_info)['username']}';")
     driver.execute_script(f"document.getElementById('password').value = 'password';")
     driver.execute_script("document.getElementsByTagName('form')[0].submit();")
-    driver.get(f"{getUrl(task)}/messages/admin")
+    driver.get(f"{getUrl(task)}/messages/{json.loads(task.attack_info)['recipient']}")
 
 
 @checker.exploit(1)
