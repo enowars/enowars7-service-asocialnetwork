@@ -39,7 +39,7 @@ chrome_options = webdriver.ChromeOptions()
 chrome_options.add_argument("--headless")
 chrome_options.add_argument('--no-sandbox')
 driver = webdriver.Chrome('/usr/bin/chromedriver', options=chrome_options)
-driver.implicitly_wait(0.1)
+driver.implicitly_wait(0.5)
 
 def encode(message, recipient, logger):
     message = message.encode('utf-8').hex()
@@ -117,7 +117,6 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
         raise MumbleException("Missing database entry from putflag")
     r, cookie = await retrieveMessage(task, client, recipient, logger, username, password)
     assert_in(task.flag, r.text, "flag missing from messages")
-    driver.get(f"{getUrl(task)}/logout")
     driver.delete_all_cookies()
     driver.add_cookie({'name': 'session', 'value': cookie.get('session')})
     driver.get(f"{getUrl(task)}/messages/{recipient}")
