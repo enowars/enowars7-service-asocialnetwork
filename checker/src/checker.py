@@ -19,6 +19,9 @@ from enochecker3.utils import FlagSearcher, assert_equals, assert_in
 import time
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import multiprocessing
 import hashlib
@@ -119,7 +122,7 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     driver.get(f"{getUrl(task)}/login")
     driver.add_cookie({'name': 'session', 'value': cookie.get('session')})
     driver.get(f"{getUrl(task)}/messages/{recipient}")
-
+    WebDriverWait(driver, task.timeout / 1000).until(EC.presence_of_element_located((By.CLASS_NAME, "message")))
     assert_in(task.flag, driver.page_source, "flag missing from messages")
     while len(driver.page_source.split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
             and time.time() - start < ((task.timeout / 1000) - 0.2):
