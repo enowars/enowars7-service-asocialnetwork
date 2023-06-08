@@ -122,7 +122,7 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     driver.get(f"{getUrl(task)}/login")
     driver.add_cookie({'name': 'session', 'value': cookie.get('session')})
     driver.get(f"{getUrl(task)}/messages/{recipient}")
-    WebDriverWait(driver, task.timeout / 1000).until(EC.presence_of_element_located((By.CLASS_NAME, "message")))
+    WebDriverWait(driver, (task.timeout / 1000)).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.message.sent')))
     assert_in(task.flag, driver.page_source, "flag missing from messages")
     while len(driver.page_source.split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
             and time.time() - start < ((task.timeout / 1000) - 0.2):

@@ -40,14 +40,15 @@ async function getPartners(user){
     let filteredMessages = [];
     for(const message of messages) {
         let newMessage = {};
-        if(user.userName === message.recipient.userName) {
+        if(user.userName !== message.recipient.userName) {
             newMessage = {name: message.recipient.userName, id: message.sender._id};
         }
         else{
-            newMessage = {name: message.recipient.userName, id: message.recipient._id};
+            newMessage = {name: message.sender.userName, id: message.recipient._id};
         }
         filteredMessages.push(newMessage);
     }
+    console.log(messages, filteredMessages)
     return filteredMessages.filter((partner, index, self) =>
         index === self.findIndex(p => p.name === partner.name)
     )

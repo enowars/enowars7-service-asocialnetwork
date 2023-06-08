@@ -33,7 +33,7 @@
                     <div class="message-container">
                 <% messages.forEach(message => { %>
                         <div>
-                            <% if(message.sender === userName){%>
+                            <% if(message.sender.userName === userName){%>
                                 <div class="message sent"><%= message.text%> <%= message.createdAt%></div>
                             <%}else{%>
                                 <div class="message received"><%= message.text%> <%= message.createdAt%></div>
