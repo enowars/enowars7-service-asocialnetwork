@@ -15,7 +15,7 @@ RUN chown -R checker:checker /checker
 COPY requirements.txt .
 USER checker
 RUN python3 -m pip install -r requirements.txt
-
+RUN python3 -m playwright install
 
 
 ENTRYPOINT [ "/home/checker/.local/bin/gunicorn", "-c", "gunicorn.conf.py", "checker:app" ]
