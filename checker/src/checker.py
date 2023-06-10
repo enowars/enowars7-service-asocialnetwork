@@ -25,7 +25,7 @@ import hashlib
 import os
 from faker import Faker
 import nest_asyncio
-
+import atexit
 fake = Faker()
 HOST = "0.0.0.0"
 PORT = 6452
@@ -114,24 +114,24 @@ Optional[str]:
 async def retrieve(task, logger, username, password, recipient, start):
     context = await browser.new_context()
     page = await browser.new_page()
-    await page.goto(f"{getUrl(task)}/login")
-    # # await page.wait_for_load_state('networkidle')
-    await page.fill('input[name="username"]', username)
-    await page.fill('input[name="password"]', password)
-    await page.click('input[type="submit"]')
-    await page.goto(f"{getUrl(task)}/messages/{recipient}")
-    # # await page.wait_for_load_state('networkidle')
-    logger.debug(await page.content())
     try:
+        await page.goto(f"{getUrl(task)}/login")
+        # # await page.wait_for_load_state('networkidle')
+        await page.fill('input[name="username"]', username)
+        await page.fill('input[name="password"]', password)
+        await page.click('input[type="submit"]')
+        await page.goto(f"{getUrl(task)}/messages/{recipient}")
+        # # await page.wait_for_load_state('networkidle')
+        logger.debug(await page.content())
         assert_in(task.flag, await page.content(), "flag missing from messages")
-    except MumbleException:
+        while len((await page.content()).split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
+                and time.time() - start < ((task.timeout / 1000) - 0.2):
+            await page.goto(f"{getUrl(task)}/messages/{recipient}")
+        #     # await page.wait_for_load_state('networkidle')
+    except Exception as e:
         await page.close()
         await context.close()
-        raise MumbleException("flag missing from messages")
-    while len((await page.content()).split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
-            and time.time() - start < ((task.timeout / 1000) - 0.2):
-        await page.goto(f"{getUrl(task)}/messages/{recipient}")
-    #     # await page.wait_for_load_state('networkidle')
+        raise e
     await page.close()
     await context.close()
 
@@ -490,6 +490,11 @@ async def exploit1(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     if flag := searcher.search_flag(r.text):
         return flag
 
+async def handleExit():
+    event_loop.close()
+    await browser.close()
+
+atexit.register(lambda: asyncio.run(handleExit()))
 
 if __name__ == "__main__":
     checker.run()
