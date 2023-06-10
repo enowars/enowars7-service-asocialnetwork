@@ -113,21 +113,28 @@ Optional[str]:
 
 async def retrieve(task, logger, username, password, recipient, start):
     context = await browser.new_context()
-    page = await context.new_page()
+    page = await browser.new_page()
     await page.goto(f"{getUrl(task)}/login")
-    # await page.wait_for_load_state('networkidle')
+    # # await page.wait_for_load_state('networkidle')
     await page.fill('input[name="username"]', username)
     await page.fill('input[name="password"]', password)
     await page.click('input[type="submit"]')
     await page.goto(f"{getUrl(task)}/messages/{recipient}")
-    # await page.wait_for_load_state('networkidle')
+    # # await page.wait_for_load_state('networkidle')
     logger.debug(await page.content())
-    assert_in(task.flag, await page.content(), "flag missing from messages")
+    try:
+        assert_in(task.flag, await page.content(), "flag missing from messages")
+    except MumbleException:
+        await page.close()
+        await context.close()
+        raise MumbleException("flag missing from messages")
     while len((await page.content()).split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
             and time.time() - start < ((task.timeout / 1000) - 0.2):
         await page.goto(f"{getUrl(task)}/messages/{recipient}")
-        # await page.wait_for_load_state('networkidle')
+    #     # await page.wait_for_load_state('networkidle')
+    await page.close()
     await context.close()
+
 
 @checker.getflag(0)
 async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
@@ -427,7 +434,7 @@ def getFlag():
 
 async def xss_test(task, logger):
     context = await browser.new_context()
-    page = await context.new_page()
+    page = await browser.new_page()
     logger.debug("Logging in as {}".format(json.loads(task.attack_info)['username']))
     await page.goto(f"{getUrl(task)}/login")
     # await page.wait_for_load_state("networkidle")
@@ -437,13 +444,16 @@ async def xss_test(task, logger):
     logger.debug("Going to messages of {}".format(json.loads(task.attack_info)['recipient']))
     await page.goto(f"{getUrl(task)}/messages/{json.loads(task.attack_info)['recipient']}")
     # await page.wait_for_load_state("networkidle")
+    await page.close()
     await context.close()
-    logger.debug("Done")
+
 
 
 @checker.exploit(0)
 async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient,
                    logger: LoggerAdapter) -> Optional[str]:
+    if not json.loads(task.attack_info)['username'] or not json.loads(task.attack_info)['recipient']:
+        return None
     process = multiprocessing.Process(target=server, args=(logger,))
     process.start()
     password = secrets.token_hex(32)
