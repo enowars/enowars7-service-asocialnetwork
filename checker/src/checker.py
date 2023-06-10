@@ -39,9 +39,6 @@ getUrl = lambda task: f"http://{task.address + ':' + str(SERVICE_PORT)}"
 chrome_options = webdriver.ChromeOptions()
 chrome_options.add_argument("--headless")
 chrome_options.add_argument('--no-sandbox')
-service = Service('/usr/bin/chromedriver')
-driver = webdriver.Chrome(service=service, options=chrome_options)
-driver.implicitly_wait(1)
 
 
 def encode(message, recipient, logger):
@@ -119,14 +116,19 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
     cookie = await login(task, client, username, password, logger)
+    service = Service('/usr/bin/chromedriver')
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    driver.implicitly_wait(1)
     driver.get(f"{getUrl(task)}/login")
     driver.add_cookie({'name': 'session', 'value': cookie.get('session')})
     driver.get(f"{getUrl(task)}/messages/{recipient}")
-    WebDriverWait(driver, (task.timeout / 1000)).until(EC.presence_of_element_located((By.CSS_SELECTOR, '.message.sent')))
+    WebDriverWait(driver, task.timeout / 1000).until(lambda executor: executor.execute_script('return document.readyState') == 'complete')
+    logger.debug(driver.page_source)
     assert_in(task.flag, driver.page_source, "flag missing from messages")
     while len(driver.page_source.split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
             and time.time() - start < ((task.timeout / 1000) - 0.2):
         driver.get(f"{getUrl(task)}/messages/{recipient}")
+    driver.quit()
 
 
 @checker.putflag(1)
@@ -434,12 +436,16 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
 
 
 def xss_test(task, logger):
+    service = Service('/usr/bin/chromedriver')
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    driver.implicitly_wait(1)
     driver.get(f"{getUrl(task)}/logout")
     driver.get(f"{getUrl(task)}/login")
     driver.execute_script(f"document.getElementById('username').value = '{json.loads(task.attack_info)['username']}';")
     driver.execute_script(f"document.getElementById('password').value = 'password';")
     driver.execute_script("document.getElementsByTagName('form')[0].submit();")
     driver.get(f"{getUrl(task)}/messages/{json.loads(task.attack_info)['recipient']}")
+    driver.quit()
 
 
 @checker.exploit(1)
