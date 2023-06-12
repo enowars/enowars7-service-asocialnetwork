@@ -28,7 +28,7 @@ import hashlib
 import os
 from faker import Faker
 
-fake = Faker()
+fake = Faker(locale=['ja-JP', 'en-US', 'de-DE', 'fr-FR', 'it-IT', 'es-ES', 'ru-RU', 'zh-CN', 'pt-BR', 'pl-PL', 'tr-TR', 'id-ID', 'ar-EG', 'ko-KR', 'th-TH', 'cs-CZ', 'bg-BG', 'el-GR', 'fa-IR', 'fi-FI', 'he-IL', 'hi-IN', 'hu-HU', 'nl-NL', 'no-NO', 'ro-RO', 'sv-SE', 'uk-UA', 'vi-VN', 'sk-SK', 'sl-SI', 'lt-LT', 'hr-HR'])
 HOST = "0.0.0.0"
 PORT = 6452
 
@@ -124,7 +124,7 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     driver.get(f"{getUrl(task)}/messages/{recipient}")
     WebDriverWait(driver, task.timeout / 1000).until(lambda executor: executor.execute_script('return document.readyState') == 'complete')
     logger.debug(driver.page_source)
-    assert_in(task.flag, driver.page_source, "flag missing from messages")
+    assert_in(task.flag, driver.page_source, "flag missing")
     while len(driver.page_source.split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
             and time.time() - start < ((task.timeout / 1000) - 0.2):
         driver.get(f"{getUrl(task)}/messages/{recipient}")
@@ -154,7 +154,10 @@ async def getflag1(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
         raise MumbleException("Missing database entry from putflag")
     cookie = await login(task, client, username, password, logger)
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
-    assert_in(task.flag, r.text, "flag missing from chatroom")
+    assert_in(task.flag, r.text, "flag missing")
+    newUserCookie, username = await register(task, client, secrets.token_hex(32), logger)
+    r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=newUserCookie)
+    assert_in(task.flag, r.text, "chatroom preventing access to new user")
 
 
 @checker.putnoise(0)
@@ -173,7 +176,7 @@ async def getnoise0(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
     except KeyError:
         raise MumbleException("Missing database entry from putnoise")
     r, _ = await retrieveMessage(task, client, recipient, logger, username, password)
-    assert_in(noise, r.text, "noise missing from note")
+    assert_in(noise, r.text, "noise missing from messages")
 
 
 @checker.putnoise(1)
@@ -186,9 +189,9 @@ async def putnoise1(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain
     roomUrl = await createChatroom(task, roomName, True, client, cookie, logger)
     logger.debug(f"Created public chatroom {roomName} with url {roomUrl}")
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
-    assert_equals(r.status_code, 200, "retrieving chatroom failed")
+    assert_equals(r.status_code, 200, "retrieving public chatroom failed")
     r = await client.post(f"{getUrl(task)}/chatroom/{roomUrl}/messages", json={"message": noise}, cookies=cookie)
-    assert_equals(r.status_code, 302, "sending message failed")
+    assert_equals(r.status_code, 302, "sending public chatroom message failed")
     await chain_db.set("noise", (username, password, noise, roomUrl))
 
 
@@ -200,7 +203,10 @@ async def getnoise1(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
         raise MumbleException("Missing database entry from putnoise")
     cookie = await login(task, client, username, password, logger)
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
-    assert_in(noise, r.text, "noise missing from note")
+    assert_in(noise, r.text, "noise missing from public chatroom")
+    newUserCookie, username = await register(task, client, secrets.token_hex(32), logger)
+    r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=newUserCookie)
+    assert_in(noise, r.text, "public chatroom preventing access to new user")
 
 
 @checker.putnoise(2)
@@ -213,10 +219,10 @@ async def putnoise2(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain
     roomUrl = await createChatroom(task, roomName, False, client, cookie, logger)
     logger.debug(f"Created private chatroom {roomName} with url {roomUrl}")
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
-    assert_equals(r.status_code, 200, "retrieving chatroom failed")
+    assert_equals(r.status_code, 200, "retrieving private chatroom failed")
     r = await client.post(f"{getUrl(task)}/chatroom/{roomUrl}/messages",
                           json={"message": noise}, cookies=cookie)
-    assert_equals(r.status_code, 302, "sending message failed")
+    assert_equals(r.status_code, 302, "sending private chatroom message failed")
     await chain_db.set("noise", (username, password, noise, roomUrl))
 
 
@@ -228,7 +234,10 @@ async def getnoise2(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
         raise MumbleException("Missing database entry from putnoise")
     cookie = await login(task, client, username, password, logger)
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
-    assert_in(noise, r.text, "noise missing from note")
+    assert_in(noise, r.text, "noise missing from private chatroom")
+    newUserCookie, username = await register(task, client, secrets.token_hex(32), logger)
+    r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=newUserCookie)
+    assert_in(noise, r.text, "private chatroom preventing access to new user")
 
 
 @checker.putnoise(3)
@@ -250,7 +259,7 @@ async def getnoise3(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
         raise MumbleException("Missing database entry from putnoise")
     cookie = await login(task, client, username, password, logger)
     r = await client.get(f"{getUrl(task)}", cookies=cookie)
-    assert_in(f"/assets/profile-pics/{profilePic}.jpg", r.text, "profile picture missing from home")
+    assert_in(f"/assets/profile-pics/{profilePic}.jpg", r.text, "profile picture missing or incorrect at home")
 
 
 @checker.putnoise(4)
@@ -272,7 +281,7 @@ async def getnoise4(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
         raise MumbleException("Missing database entry from putnoise")
     cookie = await login(task, client, username, password, logger)
     r = await client.get(f"{getUrl(task)}/profile/{username}", cookies=cookie)
-    assert_in(message, r.text, "message missing from profile")
+    assert_in(message, r.text, "message missing from profile wall")
 
 
 @checker.putnoise(5)
@@ -282,14 +291,16 @@ async def putnoise5(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain
     noise = generateNoise()
     cookie, username = await register(task, client, password, logger)
     partnerCookie, partner = await register(task, client, password, logger)
+    r = await client.get(f"{getUrl(task)}/profile/{partner}", cookies=cookie)
+    assert_in(f"You are not friends with this user", r.text, "profile page visible to non-friends")
     r = await client.post(f"{getUrl(task)}/friends/requests", json={'userName': username, 'partner': partner, 'status': 'send'}, cookies=cookie)
     assert_equals(r.status_code, 200, "sending friend request failed")
+    r = await client.get(f"{getUrl(task)}/profile/{partner}", cookies=cookie)
+    assert_in(f"You are not friends with this user", r.text, "profile page visible to requested friends")
     r = await client.post(f"{getUrl(task)}/friends/requests", json={'userName': username, 'partner': partner, 'status': 'accept'}, cookies=cookie)
     assert_equals(r.status_code, 200, "accepting friend request failed")
     r = await client.post(f"{getUrl(task)}/profile/{partner}/wall", json={'message': noise}, cookies=partnerCookie)
     assert_equals(json.loads(r.text), {'message': 'Message posted', 'status': 200}, "posting to wall failed")
-    r = await client.get(f"{getUrl(task)}/profile/{partner}", cookies=cookie)
-    assert_in(noise, r.text, "message missing from profile")
     await chain_db.set("noise", (username, partner, password, noise))
 
 
@@ -301,7 +312,7 @@ async def getnoise5(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
         raise MumbleException("Missing database entry from putnoise")
     cookie = await login(task, client, username, password, logger)
     r = await client.get(f"{getUrl(task)}/profile/{partner}", cookies=cookie)
-    assert_in(noise, r.text, "noise missing from profile")
+    assert_in(noise, r.text, "noise missing from profile wall")
 
 
 @checker.havoc(0)

@@ -188,9 +188,6 @@ app.get('/logout', (req, res) => {
     res.clearCookie('session');
     res.redirect('/login');
 });
-app.get('/test', async (req, res) => {
-   res.json(await User.find({}));
-});
 app.use((req, res, next) => {
     if(!res.page){
         next();
