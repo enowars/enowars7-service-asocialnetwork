@@ -74,7 +74,10 @@ async def login(task, client, username, password, logger):
 
 
 async def sendMessage(task, client, recipient, message, logger):
-    password = 'password'
+    if os.environ.get('ENOCHECKER_PUTFLAG_PASSWORD'):
+        password = os.environ.get('ENOCHECKER_PUTFLAG_PASSWORD')
+    else:
+        password = secrets.token_hex(32)
     encoded_message = encode(message, recipient, logger)
     cookie, username = await register(task, client, password, logger)
     await client.post(f"{getUrl(task)}/messages/", json={"recipient": recipient, "message": encoded_message},
@@ -156,8 +159,13 @@ async def getflag1(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
     assert_in(task.flag, r.text, "flag missing")
     newUserCookie, username = await register(task, client, secrets.token_hex(32), logger)
+    logger.debug("Getting chatroom with new user")
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=newUserCookie)
-    assert_in(task.flag, r.text, "chatroom preventing access to new user")
+    try:
+        assert_in(task.flag, r.text, "chatroom preventing access to new user")
+    except Exception as e:
+        logger.debug("Error finding " + task.flag + " in " + r.text)
+        raise e
 
 
 @checker.putnoise(0)
