@@ -74,9 +74,7 @@ async def login(task, client, username, password, logger):
 
 
 async def sendMessage(task, client, recipient, message, logger):
-    if os.environ.get('ENOCHECKER_PUTFLAG_PASSWORD'):
-        password = os.environ.get('ENOCHECKER_PUTFLAG_PASSWORD')
-    else:
+    if password := not os.environ.get('ENOCHECKER_PUTFLAG_PASSWORD'):
         password = secrets.token_hex(32)
     encoded_message = encode(message, recipient, logger)
     cookie, username = await register(task, client, password, logger)
