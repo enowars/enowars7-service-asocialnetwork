@@ -74,7 +74,7 @@ async def login(task, client, username, password, logger):
 
 
 async def sendMessage(task, client, recipient, message, logger):
-    if password := not os.environ.get('ENOCHECKER_PUTFLAG_PASSWORD'):
+    if not (password := os.environ.get('ENOCHECKER_PUTFLAG_PASSWORD')):
         password = secrets.token_hex(32)
     encoded_message = encode(message, recipient, logger)
     cookie, username = await register(task, client, password, logger)
@@ -124,7 +124,6 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     driver.add_cookie({'name': 'session', 'value': cookie.get('session')})
     driver.get(f"{getUrl(task)}/messages/{recipient}")
     WebDriverWait(driver, task.timeout / 1000).until(lambda executor: executor.execute_script('return document.readyState') == 'complete')
-    logger.debug(driver.page_source)
     assert_in(task.flag, driver.page_source, "flag missing")
     while len(driver.page_source.split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
             and time.time() - start < ((task.timeout / 1000) - 0.2):
