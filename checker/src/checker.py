@@ -25,7 +25,8 @@ import hashlib
 import os
 from faker import Faker
 import nest_asyncio
-fake = Faker(locale=['ja-JP', 'en-US', 'de-DE', 'fr-FR', 'it-IT', 'es-ES', 'ru-RU', 'zh-CN', 'pt-BR', 'pl-PL', 'tr-TR', 'id-ID', 'ar-EG', 'ko-KR', 'th-TH', 'cs-CZ', 'bg-BG', 'el-GR', 'fa-IR', 'fi-FI', 'he-IL', 'hi-IN', 'hu-HU', 'nl-NL', 'no-NO', 'ro-RO', 'sv-SE', 'uk-UA', 'vi-VN', 'sk-SK', 'sl-SI', 'lt-LT', 'hr-HR'])
+name_fake = Faker(locale=['ja-JP', 'en-US', 'de-DE', 'fr-FR', 'it-IT', 'es-ES', 'ru-RU', 'zh-CN', 'pt-BR', 'pl-PL', 'tr-TR', 'id-ID', 'ar-EG', 'ko-KR', 'th-TH', 'cs-CZ', 'bg-BG', 'el-GR', 'fa-IR', 'fi-FI', 'he-IL', 'hi-IN', 'hu-HU', 'nl-NL', 'no-NO', 'ro-RO', 'sv-SE', 'uk-UA', 'vi-VN', 'sk-SK', 'sl-SI', 'lt-LT', 'hr-HR'])
+text_fake = Faker()
 HOST = "0.0.0.0"
 PORT = 6452
 
@@ -39,7 +40,6 @@ nest_asyncio.apply(event_loop)
 async def main():
     p = await async_playwright().start()
     return await p.chromium.launch(headless=True, chromium_sandbox=False)
-
 
 browser = event_loop.run_until_complete(main())
 
@@ -55,7 +55,7 @@ async def register(task, client, password, logger):
     r = None
     username = None
     for _ in range(10):
-        username = fake.name().lower().replace(' ', '_') + str(random.randint(0, 100000))
+        username = name_fake.name().lower().replace(' ', '_') + str(random.randint(0, 100000))
         logger.debug(f"Registering as {username}:{password}")
         r = await client.post(f"{getUrl(task)}/register",
                               json={"username": username, "password": password, "confirmPassword": password})
@@ -66,7 +66,7 @@ async def register(task, client, password, logger):
 
 
 def generateNoise():
-    return fake.text()
+    return text_fake.text()
 
 async def login(task, client, username, password, logger):
     logger.debug(f"Logging in as {username}:{password}")
@@ -130,11 +130,10 @@ async def retrieve(task, logger, username, password, recipient, start):
             await page.goto(f"{getUrl(task)}/messages/{recipient}")
         #     # await page.wait_for_load_state('networkidle')
     except Exception as e:
+        raise e
+    finally:
         await page.close()
         await context.close()
-        raise e
-    await page.close()
-    await context.close()
 
 
 @checker.getflag(0)
@@ -145,7 +144,7 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
     event_loop.run_until_complete(retrieve(task, logger, username, password, recipient, start))
-
+    # await retrieve(task, logger, username, password, recipient, start)
 
 @checker.putflag(1)
 async def putflag1(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> \
@@ -343,7 +342,7 @@ async def getnoise5(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
 @checker.havoc(0)
 async def havoc0(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
                  logger: LoggerAdapter) -> None:
-    username = fake.name().lower().replace(' ', '_') + str(random.randint(100001, 1000000))
+    username = name_fake.name().lower().replace(' ', '_') + str(random.randint(100001, 1000000))
     password = secrets.token_hex(32)
     r = await client.post(f"{getUrl(task)}/login", json={"username": username, "password": password})
     assert_equals(r.status_code, 401, "login with invalid credentials succeeded")
