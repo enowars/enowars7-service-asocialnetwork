@@ -1,3 +1,4 @@
+import asyncio
 import json
 import random
 import secrets
@@ -33,9 +34,8 @@ SERVICE_PORT = 3000
 checker = Enochecker("asocialnetwork", SERVICE_PORT)
 app = lambda: checker.app
 getUrl = lambda task: f"http://{task.address + ':' + str(SERVICE_PORT)}"
-chrome_options = webdriver.ChromeOptions()
-chrome_options.add_argument("--headless")
-chrome_options.add_argument('--no-sandbox')
+event_loop = asyncio.new_event_loop()
+nest_asyncio.apply(event_loop)
 async def main():
     p = await async_playwright().start()
     return await p.chromium.launch(headless=True, chromium_sandbox=False)
@@ -467,7 +467,7 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     return flag
 
 
-def xss_test(task, logger):
+async def xss_test(task, logger):
     context = await browser.new_context()
     page = await browser.new_page()
     logger.debug("Logging in as {}".format(json.loads(task.attack_info)['username']))
