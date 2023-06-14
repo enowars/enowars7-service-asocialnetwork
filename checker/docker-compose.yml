@@ -13,6 +13,7 @@ services:
      - MONGO_PORT=27017
      - MONGO_USER=asocialnetwork_checker
      - MONGO_PASSWORD=asocialnetwork_checker
+     - ENOCHECKER_PUTFLAG_PASSWORD=${ENOCHECKER_PUTFLAG_PASSWORD}
     mem_limit: 1G
     memswap_limit: 2G
     ulimits:

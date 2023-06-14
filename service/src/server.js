@@ -188,9 +188,6 @@ app.get('/logout', (req, res) => {
     res.clearCookie('session');
     res.redirect('/login');
 });
-app.get('/test', async (req, res) => {
-   res.json(await User.find({}));
-});
 app.use((req, res, next) => {
     if(!res.page){
         next();
@@ -204,26 +201,24 @@ app.use((req, res, next) => {
 });
 async function cleanup(){
     try{
-        User.find( { createdAt : {"$lt" : new Date(Date.now() - 15 * 60 * 1000) } }, {_id: 1})
-            .then(async (users) => {
-                await Profile.deleteMany({user: {$in: users}});
-                await Friend.deleteMany({$or: [{initiator: {$in: users}}, {recipient: {$in: users}}]});
-                await Message.deleteMany({$or: [{sender: {$in: users}}, {recipient: {$in: users}}]});
-                let rooms = await Chatroom.find({});
-                for(let room of rooms){
-                    let messages = room.messages;
-                    for(let i = 0; i < messages.length; i++){
-                        if(messages[i].user in users){
-                            messages.splice(i, 1);
-                            i--;
-                        }
-                    }
-                }
-            });
-        await Message.deleteMany( { createdAt : {"$lt" : new Date(Date.now() - 15 * 60 * 1000) }})
-        await User.deleteMany( { createdAt : {"$lt" : new Date(Date.now() - 15 * 60 * 1000) }})
+        let users = await User.find( { createdAt : {"$lt" : new Date(Date.now() - 15 * 60 * 1000) } }, {_id: 1});
         await Chatroom.deleteMany( { createdAt : {"$lt" : new Date(Date.now() - 15 * 60 * 1000) }})
-
+        await Profile.deleteMany({user: {$in: users}});
+        await Friend.deleteMany({$or: [{initiator: {$in: users}}, {recipient: {$in: users}}]});
+        await Message.deleteMany({$or: [{sender: {$in: users}}, {recipient: {$in: users}}]});
+        let rooms = await Chatroom.find({});
+        const bulkOperations = [];
+        for (let room of rooms) {
+          const updateOperation = {
+            updateOne: {
+              filter: { _id: room._id },
+              update: { $pull: { messages: { author: { $in: users } } } }
+            }
+          };
+          bulkOperations.push(updateOperation);
+        }
+        await Chatroom.bulkWrite(bulkOperations);
+        await User.deleteMany( {_id : {"$in" : users } });
     }
     catch (e) {
         console.log(e);
@@ -231,7 +226,7 @@ async function cleanup(){
 }
 setInterval(async () => {
     await cleanup();
-}, 1000);
+}, 10000);
 
 app.listen(3000, () => {
     console.log("Listening on port 3000")

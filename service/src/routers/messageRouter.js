@@ -48,7 +48,6 @@ async function getPartners(user){
         }
         filteredMessages.push(newMessage);
     }
-    console.log(messages, filteredMessages)
     return filteredMessages.filter((partner, index, self) =>
         index === self.findIndex(p => p.name === partner.name)
     )
