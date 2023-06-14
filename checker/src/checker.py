@@ -159,7 +159,9 @@ async def getflag1(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     logger.debug("Getting chatroom with new user")
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=newUserCookie)
     try:
+        logger.debug("Finding " + task.flag + " in " + r.text)
         assert_in(task.flag, r.text, "chatroom preventing access to new user")
+        logger.debug("Found " + task.flag + " in " + r.text)
     except Exception as e:
         logger.debug("Error finding " + task.flag + " in " + r.text)
         raise e
