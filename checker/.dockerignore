@@ -4,3 +4,4 @@ docker-compose.yml
 .dockerignore
 .gitignore
 .env
+.env.dev

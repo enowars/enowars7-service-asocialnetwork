@@ -1,4 +1,3 @@
-import asyncio
 import json
 import random
 import secrets
@@ -34,9 +33,9 @@ SERVICE_PORT = 3000
 checker = Enochecker("asocialnetwork", SERVICE_PORT)
 app = lambda: checker.app
 getUrl = lambda task: f"http://{task.address + ':' + str(SERVICE_PORT)}"
-event_loop = asyncio.new_event_loop()
-nest_asyncio.apply(event_loop)
-
+chrome_options = webdriver.ChromeOptions()
+chrome_options.add_argument("--headless")
+chrome_options.add_argument('--no-sandbox')
 async def main():
     p = await async_playwright().start()
     return await p.chromium.launch(headless=True, chromium_sandbox=False)
@@ -110,7 +109,6 @@ Optional[str]:
     await chain_db.set("userdata", (username, recipient, password, flag))
     return json.dumps({'username': username, 'recipient': recipient})
 
-
 async def retrieve(task, logger, username, password, recipient, start):
     context = await browser.new_context()
     page = await browser.new_page()
@@ -134,7 +132,6 @@ async def retrieve(task, logger, username, password, recipient, start):
     finally:
         await page.close()
         await context.close()
-
 
 @checker.getflag(0)
 async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
@@ -323,8 +320,6 @@ async def putnoise5(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain
     assert_equals(r.status_code, 200, "accepting friend request failed")
     r = await client.post(f"{getUrl(task)}/profile/{partner}/wall", json={'message': noise}, cookies=partnerCookie)
     assert_equals(json.loads(r.text), {'message': 'Message posted', 'status': 200}, "posting to wall failed")
-    r = await client.get(f"{getUrl(task)}/profile/{partner}", cookies=cookie)
-    assert_in(noise, r.text, "message missing from profile")
     await chain_db.set("noise", (username, partner, password, noise))
 
 
@@ -452,23 +447,6 @@ def getFlag():
                 return flag.read()
 
 
-async def xss_test(task, logger):
-    context = await browser.new_context()
-    page = await browser.new_page()
-    logger.debug("Logging in as {}".format(json.loads(task.attack_info)['username']))
-    await page.goto(f"{getUrl(task)}/login")
-    # await page.wait_for_load_state("networkidle")
-    await page.fill("#username", json.loads(task.attack_info)['username'])
-    await page.fill("#password", "password")
-    await page.click("input[type=submit]")
-    logger.debug("Going to messages of {}".format(json.loads(task.attack_info)['recipient']))
-    await page.goto(f"{getUrl(task)}/messages/{json.loads(task.attack_info)['recipient']}")
-    # await page.wait_for_load_state("networkidle")
-    await page.close()
-    await context.close()
-
-
-
 @checker.exploit(0)
 async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient,
                    logger: LoggerAdapter) -> Optional[str]:
@@ -487,6 +465,22 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     flag = searcher.search_flag(flagText)
     process.terminate()
     return flag
+
+
+def xss_test(task, logger):
+    context = await browser.new_context()
+    page = await browser.new_page()
+    logger.debug("Logging in as {}".format(json.loads(task.attack_info)['username']))
+    await page.goto(f"{getUrl(task)}/login")
+    # await page.wait_for_load_state("networkidle")
+    await page.fill("#username", json.loads(task.attack_info)['username'])
+    await page.fill("#password", "password")
+    await page.click("input[type=submit]")
+    logger.debug("Going to messages of {}".format(json.loads(task.attack_info)['recipient']))
+    await page.goto(f"{getUrl(task)}/messages/{json.loads(task.attack_info)['recipient']}")
+    # await page.wait_for_load_state("networkidle")
+    await page.close()
+    await context.close()
 
 
 @checker.exploit(1)

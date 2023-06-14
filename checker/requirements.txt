@@ -2,6 +2,6 @@ enochecker3==0.7.1
 uvicorn
 gunicorn
 faker
-playwright
+selenium
+webdriver-manager
 enochecker_test
-nest_asyncio
