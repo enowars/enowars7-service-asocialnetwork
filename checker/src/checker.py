@@ -17,18 +17,15 @@ from enochecker3 import (
 )
 from enochecker3.utils import FlagSearcher, assert_equals, assert_in
 import time
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
+from playwright.async_api import async_playwright
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import multiprocessing
 import hashlib
 import os
 from faker import Faker
-
-fake = Faker(locale=['ja-JP', 'en-US', 'de-DE', 'fr-FR', 'it-IT', 'es-ES', 'ru-RU', 'zh-CN', 'pt-BR', 'pl-PL', 'tr-TR', 'id-ID', 'ar-EG', 'ko-KR', 'th-TH', 'cs-CZ', 'bg-BG', 'el-GR', 'fa-IR', 'fi-FI', 'he-IL', 'hi-IN', 'hu-HU', 'nl-NL', 'no-NO', 'ro-RO', 'sv-SE', 'uk-UA', 'vi-VN', 'sk-SK', 'sl-SI', 'lt-LT', 'hr-HR'])
+import nest_asyncio
+name_fake = Faker(locale=['ja-JP', 'en-US', 'de-DE', 'fr-FR', 'it-IT', 'es-ES', 'ru-RU', 'zh-CN', 'pt-BR', 'pl-PL', 'tr-TR', 'id-ID', 'ar-EG', 'ko-KR', 'th-TH', 'cs-CZ', 'bg-BG', 'el-GR', 'fa-IR', 'fi-FI', 'he-IL', 'hi-IN', 'hu-HU', 'nl-NL', 'no-NO', 'ro-RO', 'sv-SE', 'uk-UA', 'vi-VN', 'sk-SK', 'sl-SI', 'lt-LT', 'hr-HR'])
+text_fake = Faker()
 HOST = "0.0.0.0"
 PORT = 6452
 
@@ -39,7 +36,11 @@ getUrl = lambda task: f"http://{task.address + ':' + str(SERVICE_PORT)}"
 chrome_options = webdriver.ChromeOptions()
 chrome_options.add_argument("--headless")
 chrome_options.add_argument('--no-sandbox')
+async def main():
+    p = await async_playwright().start()
+    return await p.chromium.launch(headless=True, chromium_sandbox=False)
 
+browser = event_loop.run_until_complete(main())
 
 def encode(message, recipient, logger):
     message = message.encode('utf-8').hex()
@@ -53,7 +54,7 @@ async def register(task, client, password, logger):
     r = None
     username = None
     for _ in range(10):
-        username = fake.name().lower().replace(' ', '_') + str(random.randint(0, 100000))
+        username = name_fake.name().lower().replace(' ', '_') + str(random.randint(0, 100000))
         logger.debug(f"Registering as {username}:{password}")
         r = await client.post(f"{getUrl(task)}/register",
                               json={"username": username, "password": password, "confirmPassword": password})
@@ -64,7 +65,7 @@ async def register(task, client, password, logger):
 
 
 def generateNoise():
-    return fake.text()
+    return text_fake.text()
 
 async def login(task, client, username, password, logger):
     logger.debug(f"Logging in as {username}:{password}")
@@ -108,6 +109,29 @@ Optional[str]:
     await chain_db.set("userdata", (username, recipient, password, flag))
     return json.dumps({'username': username, 'recipient': recipient})
 
+async def retrieve(task, logger, username, password, recipient, start):
+    context = await browser.new_context()
+    page = await browser.new_page()
+    try:
+        await page.goto(f"{getUrl(task)}/login")
+        # # await page.wait_for_load_state('networkidle')
+        await page.fill('input[name="username"]', username)
+        await page.fill('input[name="password"]', password)
+        await page.click('input[type="submit"]')
+        await page.goto(f"{getUrl(task)}/messages/{recipient}")
+        # # await page.wait_for_load_state('networkidle')
+        content = await page.content()
+        logger.debug(content)
+        assert_in(task.flag, content, "flag missing")
+        while len((await page.content()).split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
+                and time.time() - start < ((task.timeout / 1000) - 0.2):
+            await page.goto(f"{getUrl(task)}/messages/{recipient}")
+        #     # await page.wait_for_load_state('networkidle')
+    except Exception as e:
+        raise e
+    finally:
+        await page.close()
+        await context.close()
 
 @checker.getflag(0)
 async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
@@ -116,20 +140,8 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
         username, recipient, password, flag = await db.get("userdata")
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
-    cookie = await login(task, client, username, password, logger)
-    service = Service('/usr/bin/chromedriver')
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    driver.implicitly_wait(1)
-    driver.get(f"{getUrl(task)}/login")
-    driver.add_cookie({'name': 'session', 'value': cookie.get('session')})
-    driver.get(f"{getUrl(task)}/messages/{recipient}")
-    WebDriverWait(driver, task.timeout / 1000).until(lambda executor: executor.execute_script('return document.readyState') == 'complete')
-    assert_in(task.flag, driver.page_source, "flag missing")
-    while len(driver.page_source.split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
-            and time.time() - start < ((task.timeout / 1000) - 0.2):
-        driver.get(f"{getUrl(task)}/messages/{recipient}")
-    driver.quit()
-
+    event_loop.run_until_complete(retrieve(task, logger, username, password, recipient, start))
+    # await retrieve(task, logger, username, password, recipient, start)
 
 @checker.putflag(1)
 async def putflag1(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> \
@@ -325,7 +337,7 @@ async def getnoise5(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
 @checker.havoc(0)
 async def havoc0(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
                  logger: LoggerAdapter) -> None:
-    username = fake.name().lower().replace(' ', '_') + str(random.randint(100001, 1000000))
+    username = name_fake.name().lower().replace(' ', '_') + str(random.randint(100001, 1000000))
     password = secrets.token_hex(32)
     r = await client.post(f"{getUrl(task)}/login", json={"username": username, "password": password})
     assert_equals(r.status_code, 401, "login with invalid credentials succeeded")
@@ -438,6 +450,8 @@ def getFlag():
 @checker.exploit(0)
 async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient,
                    logger: LoggerAdapter) -> Optional[str]:
+    if not json.loads(task.attack_info).keys() >= {'username', 'recipient'}:
+        return None
     process = multiprocessing.Process(target=server, args=(logger,))
     process.start()
     password = secrets.token_hex(32)
@@ -446,24 +460,27 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     payload = encode(exploitMessage.format(task.address), target, logger)
     r = await client.post(f"{getUrl(task)}/messages/", json={"recipient": target, "message": payload}, cookies=cookie)
     assert_equals(r.status_code, 200, "exploit failed")
-    xss_test(task, logger)
+    event_loop.run_until_complete(xss_test(task, logger))
     flagText = getFlag()
     flag = searcher.search_flag(flagText)
-    process.kill()
+    process.terminate()
     return flag
 
 
 def xss_test(task, logger):
-    service = Service('/usr/bin/chromedriver')
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    driver.implicitly_wait(1)
-    driver.get(f"{getUrl(task)}/logout")
-    driver.get(f"{getUrl(task)}/login")
-    driver.execute_script(f"document.getElementById('username').value = '{json.loads(task.attack_info)['username']}';")
-    driver.execute_script(f"document.getElementById('password').value = 'password';")
-    driver.execute_script("document.getElementsByTagName('form')[0].submit();")
-    driver.get(f"{getUrl(task)}/messages/{json.loads(task.attack_info)['recipient']}")
-    driver.quit()
+    context = await browser.new_context()
+    page = await browser.new_page()
+    logger.debug("Logging in as {}".format(json.loads(task.attack_info)['username']))
+    await page.goto(f"{getUrl(task)}/login")
+    # await page.wait_for_load_state("networkidle")
+    await page.fill("#username", json.loads(task.attack_info)['username'])
+    await page.fill("#password", "password")
+    await page.click("input[type=submit]")
+    logger.debug("Going to messages of {}".format(json.loads(task.attack_info)['recipient']))
+    await page.goto(f"{getUrl(task)}/messages/{json.loads(task.attack_info)['recipient']}")
+    # await page.wait_for_load_state("networkidle")
+    await page.close()
+    await context.close()
 
 
 @checker.exploit(1)
