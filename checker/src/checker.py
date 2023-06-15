@@ -34,13 +34,13 @@ SERVICE_PORT = 3000
 checker = Enochecker("asocialnetwork", SERVICE_PORT)
 app = lambda: checker.app
 getUrl = lambda task: f"http://{task.address + ':' + str(SERVICE_PORT)}"
-event_loop = asyncio.new_event_loop()
-nest_asyncio.apply(event_loop)
-async def main():
-    p = await async_playwright().start()
-    return await p.chromium.launch(headless=True, chromium_sandbox=False)
-
-browser = event_loop.run_until_complete(main())
+# event_loop = asyncio.new_event_loop()
+# nest_asyncio.apply(event_loop)
+# async def main():
+#     p = await async_playwright().start()
+#     return await p.chromium.launch(headless=True, chromium_sandbox=False)
+#
+# browser = asyncio.run(main())
 
 def encode(message, recipient, logger):
     message = message.encode('utf-8').hex()
@@ -110,8 +110,15 @@ Optional[str]:
     return json.dumps({'username': username, 'recipient': recipient})
 
 async def retrieve(task, logger, username, password, recipient, start):
-    context = await browser.new_context()
-    page = await browser.new_page()
+    p = await async_playwright().start()
+    browser = await p.chromium.launch(headless=True, chromium_sandbox=False)
+    try:
+        context = await browser.new_context()
+        page = await browser.new_page()
+    except Exception as e:
+        # await browser.close()
+        # await p.stop()
+        raise e
     try:
         await page.goto(f"{getUrl(task)}/login")
         # # await page.wait_for_load_state('networkidle')
@@ -120,9 +127,7 @@ async def retrieve(task, logger, username, password, recipient, start):
         await page.click('input[type="submit"]')
         await page.goto(f"{getUrl(task)}/messages/{recipient}")
         # # await page.wait_for_load_state('networkidle')
-        content = await page.content()
-        logger.debug(content)
-        assert_in(task.flag, content, "flag missing")
+        assert_in(task.flag, await page.content(), "flag missing")
         while len((await page.content()).split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
                 and time.time() - start < ((task.timeout / 1000) - 0.2):
             await page.goto(f"{getUrl(task)}/messages/{recipient}")
@@ -132,6 +137,9 @@ async def retrieve(task, logger, username, password, recipient, start):
     finally:
         await page.close()
         await context.close()
+        await browser.close()
+        await p.stop()
+
 
 @checker.getflag(0)
 async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
@@ -140,8 +148,8 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
         username, recipient, password, flag = await db.get("userdata")
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
-    event_loop.run_until_complete(retrieve(task, logger, username, password, recipient, start))
-    # await retrieve(task, logger, username, password, recipient, start)
+    # event_loop.run_until_complete(retrieve(task, logger, username, password, recipient, start))
+    await retrieve(task, logger, username, password, recipient, start)
 
 @checker.putflag(1)
 async def putflag1(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> \
@@ -171,9 +179,7 @@ async def getflag1(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     logger.debug("Getting chatroom with new user")
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=newUserCookie)
     try:
-        logger.debug("Finding " + task.flag + " in " + r.text)
         assert_in(task.flag, r.text, "chatroom preventing access to new user")
-        logger.debug("Found " + task.flag + " in " + r.text)
     except Exception as e:
         logger.debug("Error finding " + task.flag + " in " + r.text)
         raise e
@@ -460,7 +466,8 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     payload = encode(exploitMessage.format(task.address), target, logger)
     r = await client.post(f"{getUrl(task)}/messages/", json={"recipient": target, "message": payload}, cookies=cookie)
     assert_equals(r.status_code, 200, "exploit failed")
-    event_loop.run_until_complete(xss_test(task, logger))
+    # event_loop.run_until_complete(xss_test(task, logger))
+    await xss_test(task, logger)
     flagText = getFlag()
     flag = searcher.search_flag(flagText)
     process.terminate()
@@ -468,19 +475,27 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
 
 
 async def xss_test(task, logger):
+    p = await async_playwright().start()
+    browser = await p.chromium.launch(headless=True)
     context = await browser.new_context()
     page = await browser.new_page()
-    logger.debug("Logging in as {}".format(json.loads(task.attack_info)['username']))
-    await page.goto(f"{getUrl(task)}/login")
-    # await page.wait_for_load_state("networkidle")
-    await page.fill("#username", json.loads(task.attack_info)['username'])
-    await page.fill("#password", "password")
-    await page.click("input[type=submit]")
-    logger.debug("Going to messages of {}".format(json.loads(task.attack_info)['recipient']))
-    await page.goto(f"{getUrl(task)}/messages/{json.loads(task.attack_info)['recipient']}")
-    # await page.wait_for_load_state("networkidle")
-    await page.close()
-    await context.close()
+    try:
+        logger.debug("Logging in as {}".format(json.loads(task.attack_info)['username']))
+        await page.goto(f"{getUrl(task)}/login")
+        # await page.wait_for_load_state("networkidle")
+        await page.fill("#username", json.loads(task.attack_info)['username'])
+        await page.fill("#password", "password")
+        await page.click("input[type=submit]")
+        logger.debug("Going to messages of {}".format(json.loads(task.attack_info)['recipient']))
+        await page.goto(f"{getUrl(task)}/messages/{json.loads(task.attack_info)['recipient']}")
+        # await page.wait_for_load_state("networkidle")
+    except Exception as e:
+        raise(e)
+    finally:
+        await page.close()
+        await context.close()
+        await browser.close()
+        await p.stop()
 
 
 @checker.exploit(1)
