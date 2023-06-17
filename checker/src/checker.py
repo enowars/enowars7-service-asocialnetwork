@@ -107,6 +107,8 @@ Optional[str]:
     cookie, recipient = await register(task, client, secrets.token_hex(32), logger)
     username, password, cookie = await sendMessage(task, client, recipient, flag, logger)
     await chain_db.set("userdata", (username, recipient, password, flag))
+    for _ in range(150):
+        await sendMessage(task, client, username, exploitMessage.format(task.address), logger)
     return json.dumps({'username': username, 'recipient': recipient})
 
 async def retrieve(task, logger, username, password, recipient, start):
@@ -129,9 +131,9 @@ async def retrieve(task, logger, username, password, recipient, start):
         # # await page.wait_for_load_state('networkidle')
         assert_in(task.flag, await page.content(), "flag missing")
         while len((await page.content()).split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
-                and time.time() - start < ((task.timeout / 1000) - 0.2):
+                and time.time() - start < ((task.timeout / 1000) - 2):
             await page.goto(f"{getUrl(task)}/messages/{recipient}")
-        #     # await page.wait_for_load_state('networkidle')
+            # await page.wait_for_load_state('networkidle')
     except Exception as e:
         raise e
     finally:
