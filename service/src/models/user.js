@@ -24,4 +24,8 @@ const userSchema = new mongoose.Schema(
             },
         },
 });
+userSchema.index({sessionId: 1}, {unique: true});
+userSchema.index({userName: 1, password: 1}, {unique: true});
+userSchema.index({createdAt: 1});
+userSchema.index({_id: 1});
 module.exports = mongoose.model('User', userSchema);

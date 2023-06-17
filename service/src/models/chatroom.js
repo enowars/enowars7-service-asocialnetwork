@@ -9,4 +9,6 @@ let chatroomSchema = new Schema({
     id: String,
     createdAt: {type: Date, default: Date.now}
 });
+chatroomSchema.index({name: 1, id: 1}, {unique: true});
+chatroomSchema.index({createdAt: 1});
 module.exports = mongoose.model('Chatroom', chatroomSchema);

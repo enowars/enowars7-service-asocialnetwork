@@ -8,5 +8,7 @@ const profileSchema = new mongoose.Schema({
         date: { type: Date, default: Date.now }
     }]
 });
+profileSchema.index({ user: 1 });
+profileSchema.index({ user: 1, image: 1 });
 const Profile = mongoose.model('Profile', profileSchema);
 module.exports = Profile;
