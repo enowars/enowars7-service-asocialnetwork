@@ -107,8 +107,6 @@ Optional[str]:
     cookie, recipient = await register(task, client, secrets.token_hex(32), logger)
     username, password, cookie = await sendMessage(task, client, recipient, flag, logger)
     await chain_db.set("userdata", (username, recipient, password, flag))
-    for _ in range(150):
-        await sendMessage(task, client, username, exploitMessage.format(task.address), logger)
     return json.dumps({'username': username, 'recipient': recipient})
 
 async def retrieve(task, logger, username, password, recipient, start):
