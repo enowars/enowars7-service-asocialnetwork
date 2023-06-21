@@ -25,7 +25,11 @@ import hashlib
 import os
 from faker import Faker
 import nest_asyncio
-name_fake = Faker(locale=['ja-JP', 'en-US', 'de-DE', 'fr-FR', 'it-IT', 'es-ES', 'ru-RU', 'zh-CN', 'pt-BR', 'pl-PL', 'tr-TR', 'id-ID', 'ar-EG', 'ko-KR', 'th-TH', 'cs-CZ', 'bg-BG', 'el-GR', 'fa-IR', 'fi-FI', 'he-IL', 'hi-IN', 'hu-HU', 'nl-NL', 'no-NO', 'ro-RO', 'sv-SE', 'uk-UA', 'vi-VN', 'sk-SK', 'sl-SI', 'lt-LT', 'hr-HR'])
+
+name_fake = Faker(
+    locale=['ja-JP', 'en-US', 'de-DE', 'fr-FR', 'it-IT', 'es-ES', 'ru-RU', 'zh-CN', 'pt-BR', 'pl-PL', 'tr-TR', 'id-ID',
+            'ar-EG', 'ko-KR', 'th-TH', 'cs-CZ', 'bg-BG', 'el-GR', 'fa-IR', 'fi-FI', 'he-IL', 'hi-IN', 'hu-HU', 'nl-NL',
+            'no-NO', 'ro-RO', 'sv-SE', 'uk-UA', 'vi-VN', 'sk-SK', 'sl-SI', 'lt-LT', 'hr-HR'])
 text_fake = Faker()
 HOST = "0.0.0.0"
 PORT = 6452
@@ -34,6 +38,8 @@ SERVICE_PORT = 3000
 checker = Enochecker("asocialnetwork", SERVICE_PORT)
 app = lambda: checker.app
 getUrl = lambda task: f"http://{task.address + ':' + str(SERVICE_PORT)}"
+
+
 # event_loop = asyncio.new_event_loop()
 # nest_asyncio.apply(event_loop)
 # async def main():
@@ -66,6 +72,7 @@ async def register(task, client, password, logger):
 
 def generateNoise():
     return text_fake.text()
+
 
 async def login(task, client, username, password, logger):
     logger.debug(f"Logging in as {username}:{password}")
@@ -102,22 +109,39 @@ async def createChatroom(task, name, public, client, cookie, logger):
 
 @checker.putflag(0)
 async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> \
-Optional[str]:
+        Optional[str]:
     flag = task.flag
     cookie, recipient = await register(task, client, secrets.token_hex(32), logger)
     username, password, cookie = await sendMessage(task, client, recipient, flag, logger)
     await chain_db.set("userdata", (username, recipient, password, flag))
     return json.dumps({'username': username, 'recipient': recipient})
 
+
+browsers = dict()
+
 async def retrieve(task, logger, username, password, recipient, start):
-    p = await async_playwright().start()
-    browser = await p.chromium.launch(headless=True, chromium_sandbox=False)
+    if not browsers.get(os.getpid()):
+        browsers[os.getpid()] = {"playwright": await async_playwright().start()}
+        browsers[os.getpid()]["browser"] = await browsers[os.getpid()]["playwright"].chromium.launch(headless=True, chromium_sandbox=False)
+        browsers[os.getpid()]["context"] = await browsers[os.getpid()]["browser"].new_context()
+        browsers[os.getpid()]["page"] = await browsers[os.getpid()]["context"].new_page()
+
+    browser = browsers[os.getpid()]["browser"]
+    p = browsers[os.getpid()]["playwright"]
+    context = browsers[os.getpid()]["context"]
+    page = browsers[os.getpid()]["page"]
     try:
-        context = await browser.new_context()
-        page = await browser.new_page()
+        await context.clear_cookies()
     except Exception as e:
-        # await browser.close()
-        # await p.stop()
+        try:
+            await browser.close()
+        except:
+            pass
+        try:
+            await p.stop()
+        except:
+            pass
+        browsers.pop(os.getpid(), None)
         raise e
     try:
         await page.goto(f"{getUrl(task)}/login")
@@ -134,11 +158,6 @@ async def retrieve(task, logger, username, password, recipient, start):
             # await page.wait_for_load_state('networkidle')
     except Exception as e:
         raise e
-    finally:
-        await page.close()
-        await context.close()
-        await browser.close()
-        await p.stop()
 
 
 @checker.getflag(0)
@@ -151,9 +170,10 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     # event_loop.run_until_complete(retrieve(task, logger, username, password, recipient, start))
     await retrieve(task, logger, username, password, recipient, start)
 
+
 @checker.putflag(1)
 async def putflag1(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB, logger: LoggerAdapter) -> \
-Optional[str]:
+        Optional[str]:
     flag = task.flag
     password = secrets.token_hex(32)
     cookie, username = await register(task, client, password, logger)
@@ -318,11 +338,13 @@ async def putnoise5(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain
     partnerCookie, partner = await register(task, client, password, logger)
     r = await client.get(f"{getUrl(task)}/profile/{partner}", cookies=cookie)
     assert_in(f"You are not friends with this user", r.text, "profile page visible to non-friends")
-    r = await client.post(f"{getUrl(task)}/friends/requests", json={'userName': username, 'partner': partner, 'status': 'send'}, cookies=cookie)
+    r = await client.post(f"{getUrl(task)}/friends/requests",
+                          json={'userName': username, 'partner': partner, 'status': 'send'}, cookies=cookie)
     assert_equals(r.status_code, 200, "sending friend request failed")
     r = await client.get(f"{getUrl(task)}/profile/{partner}", cookies=cookie)
     assert_in(f"You are not friends with this user", r.text, "profile page visible to requested friends")
-    r = await client.post(f"{getUrl(task)}/friends/requests", json={'userName': username, 'partner': partner, 'status': 'accept'}, cookies=cookie)
+    r = await client.post(f"{getUrl(task)}/friends/requests",
+                          json={'userName': username, 'partner': partner, 'status': 'accept'}, cookies=cookie)
     assert_equals(r.status_code, 200, "accepting friend request failed")
     r = await client.post(f"{getUrl(task)}/profile/{partner}/wall", json={'message': noise}, cookies=partnerCookie)
     assert_equals(json.loads(r.text), {'message': 'Message posted', 'status': 200}, "posting to wall failed")
@@ -354,9 +376,11 @@ async def havoc1(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: C
                  logger: LoggerAdapter) -> None:
     username = secrets.token_hex(32)
     password = secrets.token_hex(32)
-    r = await client.post(f"{getUrl(task)}/register", json={"username": username, "password": password, "confirmPassword": password})
+    r = await client.post(f"{getUrl(task)}/register",
+                          json={"username": username, "password": password, "confirmPassword": password})
     assert_equals(r.status_code, 302, "register failed")
-    r = await client.post(f"{getUrl(task)}/register", json={"username": username, "password": password, "confirmPassword": password})
+    r = await client.post(f"{getUrl(task)}/register",
+                          json={"username": username, "password": password, "confirmPassword": password})
     assert_equals(r.status_code, 400, "register with duplicate credentials succeeded")
 
 
@@ -383,7 +407,7 @@ async def havoc3(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: C
 
 @checker.havoc(4)
 async def havoc4(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
-                    logger: LoggerAdapter) -> None:
+                 logger: LoggerAdapter) -> None:
     password = secrets.token_hex(32)
     cookie, _ = await register(task, client, password, logger)
     _, newUser = await register(task, client, password, logger)
@@ -415,9 +439,10 @@ fakePayloads = [
 
 @checker.havoc(5)
 async def havoc5(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
-                    logger: LoggerAdapter) -> None:
+                 logger: LoggerAdapter) -> None:
     password = secrets.token_hex(32)
-    await client.post(f"{getUrl(task)}/login", json={"username": fakePayloads[secrets.randbelow(len(fakePayloads))], "password": password})
+    await client.post(f"{getUrl(task)}/login",
+                      json={"username": fakePayloads[secrets.randbelow(len(fakePayloads))], "password": password})
 
 
 exploitMessage = "<script>function getText(){{let text='';let messages = document.getElementsByClassName(" \
@@ -458,6 +483,8 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
                    logger: LoggerAdapter) -> Optional[str]:
     if not json.loads(task.attack_info).keys() >= {'username', 'recipient'}:
         return None
+    if not os.getenv("ENOCHECKER_PUTFLAG_PASSWORD"):
+        return None
     process = multiprocessing.Process(target=server, args=(logger,))
     process.start()
     password = secrets.token_hex(32)
@@ -475,10 +502,15 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
 
 
 async def xss_test(task, logger):
-    p = await async_playwright().start()
-    browser = await p.chromium.launch(headless=True)
-    context = await browser.new_context()
-    page = await browser.new_page()
+    if not browsers.get(os.getpid()):
+        browsers[os.getpid()] = {"playwright": await async_playwright().start()}
+        browsers[os.getpid()]["browser"] = await browsers[os.getpid()]["playwright"].chromium.launch()
+        browsers[os.getpid()]["context"] = await browsers[os.getpid()]["browser"].new_context()
+        browsers[os.getpid()]["page"] = await browsers[os.getpid()]["context"].new_page()
+    browser = browsers[os.getpid()]["browser"]
+    context = browsers[os.getpid()]["context"]
+    page = browsers[os.getpid()]["page"]
+    await context.clear_cookies()
     try:
         logger.debug("Logging in as {}".format(json.loads(task.attack_info)['username']))
         await page.goto(f"{getUrl(task)}/login")
@@ -488,14 +520,10 @@ async def xss_test(task, logger):
         await page.click("input[type=submit]")
         logger.debug("Going to messages of {}".format(json.loads(task.attack_info)['recipient']))
         await page.goto(f"{getUrl(task)}/messages/{json.loads(task.attack_info)['recipient']}")
+        logger.debug(await page.content())
         # await page.wait_for_load_state("networkidle")
     except Exception as e:
-        raise(e)
-    finally:
-        await page.close()
-        await context.close()
-        await browser.close()
-        await p.stop()
+        raise (e)
 
 
 @checker.exploit(1)
