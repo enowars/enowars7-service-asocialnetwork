@@ -5,7 +5,7 @@ set -x
 # Chown the mounted data volume
 chown -R service:service "/data/"
 chown -R service:service "/service/"
-
+nginx
 # Install the dependencies
 su -s /bin/sh -c 'npm install' service
 # Start the server
