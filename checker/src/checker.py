@@ -125,7 +125,7 @@ async def retrieve(task, logger, username, password, recipient, start):
         browsers[os.getpid()]["browser"] = await browsers[os.getpid()]["playwright"].chromium.launch(headless=True, chromium_sandbox=False)
         browsers[os.getpid()]["context"] = await browsers[os.getpid()]["browser"].new_context()
         browsers[os.getpid()]["page"] = await browsers[os.getpid()]["context"].new_page()
-        browsers[os.getpid()]["page"].set_default_timeout(1000)
+        # browsers[os.getpid()]["page"].set_default_timeout(1000)
 
     browser = browsers[os.getpid()]["browser"]
     p = browsers[os.getpid()]["playwright"]
@@ -151,6 +151,7 @@ async def retrieve(task, logger, username, password, recipient, start):
         await page.fill('input[name="username"]', username)
         await page.fill('input[name="password"]', password)
         await page.click('input[type="submit"]')
+        await page.wait_for_load_state('networkidle')
         await page.goto(f"{getUrl(task)}/messages/{recipient}")
         # # await page.wait_for_load_state('networkidle')
         assert_in(task.flag, await page.content(), "flag missing")
