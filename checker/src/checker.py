@@ -119,7 +119,7 @@ async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_d
 
 browsers = dict()
 
-async def retrieve(task, logger, username, password, recipient, start):
+async def retrieve(task, logger, username, password, recipient, start, client):
     if not browsers.get(os.getpid()):
         browsers[os.getpid()] = {"playwright": await async_playwright().start()}
         browsers[os.getpid()]["browser"] = await browsers[os.getpid()]["playwright"].chromium.launch(headless=True, chromium_sandbox=False)
@@ -146,11 +146,9 @@ async def retrieve(task, logger, username, password, recipient, start):
         browsers.pop(os.getpid(), None)
         raise e
     try:
-        await page.goto(f"{getUrl(task)}/login")
-        # # await page.wait_for_load_state('networkidle')
-        await page.fill('input[name="username"]', username)
-        await page.fill('input[name="password"]', password)
-        await page.click('input[type="submit"]')
+        cookies = (await client.post(f"{getUrl(task)}/login", json={"username": username, "password": password})).cookies
+        cookie = [{'name': 'session', 'value': cookies['session'], 'domain': task.address, 'path': '/'}]
+        await context.add_cookies(cookie)
         await page.wait_for_load_state('networkidle')
         await page.goto(f"{getUrl(task)}/messages/{recipient}")
         # # await page.wait_for_load_state('networkidle')
@@ -171,7 +169,7 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
     # event_loop.run_until_complete(retrieve(task, logger, username, password, recipient, start))
-    await retrieve(task, logger, username, password, recipient, start)
+    await retrieve(task, logger, username, password, recipient, start, client)
 
 
 @checker.putflag(1)
