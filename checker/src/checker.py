@@ -131,6 +131,7 @@ async def retrieve(task, logger, username, password, recipient, start):
     context = browsers[os.getpid()]["context"]
     page = browsers[os.getpid()]["page"]
     try:
+        await page.set_default_timeout(1000)
         await context.clear_cookies()
     except Exception as e:
         try:
