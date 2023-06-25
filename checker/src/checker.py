@@ -125,13 +125,14 @@ async def retrieve(task, logger, username, password, recipient, start):
         browsers[os.getpid()]["browser"] = await browsers[os.getpid()]["playwright"].chromium.launch(headless=True, chromium_sandbox=False)
         browsers[os.getpid()]["context"] = await browsers[os.getpid()]["browser"].new_context()
         browsers[os.getpid()]["page"] = await browsers[os.getpid()]["context"].new_page()
+        browsers[os.getpid()]["page"].set_default_timeout(1000)
 
     browser = browsers[os.getpid()]["browser"]
     p = browsers[os.getpid()]["playwright"]
     context = browsers[os.getpid()]["context"]
     page = browsers[os.getpid()]["page"]
     try:
-        await page.set_default_timeout(1000)
+
         await context.clear_cookies()
     except Exception as e:
         try:
