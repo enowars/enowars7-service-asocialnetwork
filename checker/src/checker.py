@@ -1,4 +1,3 @@
-import asyncio
 import json
 import random
 import secrets
@@ -24,7 +23,6 @@ import multiprocessing
 import hashlib
 import os
 from faker import Faker
-import nest_asyncio
 
 name_fake = Faker(
     locale=['ja-JP', 'en-US', 'de-DE', 'fr-FR', 'it-IT', 'es-ES', 'ru-RU', 'zh-CN', 'pt-BR', 'pl-PL', 'tr-TR', 'id-ID',
@@ -39,14 +37,6 @@ checker = Enochecker("asocialnetwork", SERVICE_PORT)
 app = lambda: checker.app
 getUrl = lambda task: f"http://{task.address + ':' + str(SERVICE_PORT)}"
 
-
-# event_loop = asyncio.new_event_loop()
-# nest_asyncio.apply(event_loop)
-# async def main():
-#     p = await async_playwright().start()
-#     return await p.chromium.launch(headless=True, chromium_sandbox=False)
-#
-# browser = asyncio.run(main())
 
 def encode(message, recipient, logger):
     message = message.encode('utf-8').hex()
