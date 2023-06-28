@@ -114,7 +114,9 @@ async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_d
     cookie, recipient = await register(task, client, secrets.token_hex(32), logger)
     username, password, cookie = await sendMessage(task, client, recipient, flag, logger)
     await chain_db.set("userdata", (username, recipient, password, flag))
-    return json.dumps({'username': username, 'recipient': recipient})
+    if os.environ.get('ENOCHECKER_PUTFLAG_PASSWORD', None):
+        return json.dumps({'username': username, 'recipient': recipient})
+    return json.dumps({'username': username})
 
 
 browsers = dict()
@@ -129,11 +131,9 @@ async def retrieve(task, logger, username, password, recipient, start, client):
 
     browser = browsers[os.getpid()]["browser"]
     p = browsers[os.getpid()]["playwright"]
-    context = browsers[os.getpid()]["context"]
-    page = browsers[os.getpid()]["page"]
     try:
-
-        await context.clear_cookies()
+        context = await browsers[os.getpid()]["browser"].new_context()
+        page = await context.new_page()
     except Exception as e:
         try:
             await browser.close()
@@ -149,16 +149,16 @@ async def retrieve(task, logger, username, password, recipient, start, client):
         cookies = (await client.post(f"{getUrl(task)}/login", json={"username": username, "password": password})).cookies
         cookie = [{'name': 'session', 'value': cookies['session'], 'domain': task.address, 'path': '/'}]
         await context.add_cookies(cookie)
-        await page.wait_for_load_state('networkidle')
         await page.goto(f"{getUrl(task)}/messages/{recipient}")
-        # # await page.wait_for_load_state('networkidle')
         assert_in(task.flag, await page.content(), "flag missing")
         while len((await page.content()).split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
                 and time.time() - start < ((task.timeout / 1000) - 2):
             await page.goto(f"{getUrl(task)}/messages/{recipient}")
-            # await page.wait_for_load_state('networkidle')
     except Exception as e:
         raise e
+    finally:
+        await page.close()
+        await context.close()
 
 
 @checker.getflag(0)
@@ -509,9 +509,8 @@ async def xss_test(task, logger):
         browsers[os.getpid()]["context"] = await browsers[os.getpid()]["browser"].new_context()
         browsers[os.getpid()]["page"] = await browsers[os.getpid()]["context"].new_page()
     browser = browsers[os.getpid()]["browser"]
-    context = browsers[os.getpid()]["context"]
-    page = browsers[os.getpid()]["page"]
-    await context.clear_cookies()
+    context = await browser.new_context()
+    page = await context.new_page()
     try:
         logger.debug("Logging in as {}".format(json.loads(task.attack_info)['username']))
         await page.goto(f"{getUrl(task)}/login")
@@ -525,6 +524,9 @@ async def xss_test(task, logger):
         # await page.wait_for_load_state("networkidle")
     except Exception as e:
         raise (e)
+    finally:
+        await page.close()
+        await context.close()
 
 
 @checker.exploit(1)
