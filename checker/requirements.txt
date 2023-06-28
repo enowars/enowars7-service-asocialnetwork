@@ -4,5 +4,4 @@ gunicorn
 faker
 playwright
 enochecker_test
-asyncio
-nest_asyncio
+py-spy
