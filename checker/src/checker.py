@@ -120,11 +120,14 @@ def requestHandler(route):
 
 
 async def retrieve(task, logger, username, password, recipient, start, client):
-    if not browsers.get(os.getpid()):
+    if not browsers.get(os.getpid()) or not browsers[os.getpid()].get("browser"):
         browsers[os.getpid()] = {"playwright": await async_playwright().start()}
         browsers[os.getpid()]["browser"] = await browsers[os.getpid()]["playwright"].chromium.launch(headless=True)
-    browser = browsers[os.getpid()]["browser"]
-    p = browsers[os.getpid()]["playwright"]
+    try:
+        browser = browsers[os.getpid()]["browser"]
+    except Exception as e:
+        logger.debug(browsers)
+        raise e
     try:
         context = await browsers[os.getpid()]["browser"].new_context()
         page = await context.new_page()
@@ -135,6 +138,7 @@ async def retrieve(task, logger, username, password, recipient, start, client):
         except:
             pass
         try:
+            p = browsers[os.getpid()]["playwright"]
             await p.stop()
         except:
             pass
