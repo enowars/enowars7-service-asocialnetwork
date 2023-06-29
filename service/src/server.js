@@ -21,8 +21,6 @@ const chatroomRouter = require('./routers/chatroomRouter');
 const friendRouter = require('./routers/friendRouter');
 app.use(cookieParser());
 
-app.use(express.static(__dirname + '/public'));
-
 app.use(async (req, res, next) => {
     if(req.method === 'POST' && (req.url === '/register' || req.url === '/login')) {
         next();

