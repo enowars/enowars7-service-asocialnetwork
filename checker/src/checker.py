@@ -23,12 +23,11 @@ import multiprocessing
 import hashlib
 import os
 from faker import Faker
-
+from html import unescape
 name_fake = Faker(
     locale=['ja-JP', 'en-US', 'de-DE', 'fr-FR', 'it-IT', 'es-ES', 'ru-RU', 'zh-CN', 'pt-BR', 'pl-PL', 'tr-TR', 'id-ID',
             'ar-EG', 'ko-KR', 'th-TH', 'cs-CZ', 'bg-BG', 'el-GR', 'fa-IR', 'fi-FI', 'he-IL', 'hi-IN', 'hu-HU', 'nl-NL',
             'no-NO', 'ro-RO', 'sv-SE', 'uk-UA', 'vi-VN', 'sk-SK', 'sl-SI', 'lt-LT', 'hr-HR'])
-text_fake = Faker()
 HOST = "0.0.0.0"
 PORT = 6452
 
@@ -61,8 +60,7 @@ async def register(task, client, password, logger):
 
 
 def generateNoise():
-    return text_fake.text()
-
+    return name_fake.text()
 
 async def login(task, client, username, password, logger):
     logger.debug(f"Logging in as {username}:{password}")
@@ -110,20 +108,27 @@ async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_d
 
 
 browsers = dict()
+target_url = None
+
+
+def requestHandler(route):
+    global target_url
+    if route.request.resource_type in ['stylesheet', 'font', 'image', 'media'] or not route.request.url.startswith(f"http://{target_url}"):
+        route.abort()
+    else:
+        route.continue_()
+
 
 async def retrieve(task, logger, username, password, recipient, start, client):
     if not browsers.get(os.getpid()):
         browsers[os.getpid()] = {"playwright": await async_playwright().start()}
         browsers[os.getpid()]["browser"] = await browsers[os.getpid()]["playwright"].chromium.launch(headless=True, chromium_sandbox=False)
-        browsers[os.getpid()]["context"] = await browsers[os.getpid()]["browser"].new_context()
-        browsers[os.getpid()]["page"] = await browsers[os.getpid()]["context"].new_page()
-        # browsers[os.getpid()]["page"].set_default_timeout(1000)
-
     browser = browsers[os.getpid()]["browser"]
     p = browsers[os.getpid()]["playwright"]
     try:
         context = await browsers[os.getpid()]["browser"].new_context()
         page = await context.new_page()
+        page.route("**/*", requestHandler)
     except Exception as e:
         try:
             await browser.close()
@@ -159,6 +164,8 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
     # event_loop.run_until_complete(retrieve(task, logger, username, password, recipient, start))
+    global target_url
+    target_url = task.address
     await retrieve(task, logger, username, password, recipient, start, client)
 
 
@@ -212,7 +219,11 @@ async def getnoise0(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
     except KeyError:
         raise MumbleException("Missing database entry from putnoise")
     r, _ = await retrieveMessage(task, client, recipient, logger, username, password)
-    assert_in(noise, r.text, "noise missing from messages")
+    try:
+        assert_in(noise, unescape(r.text), "noise missing from messages")
+    except Exception as e:
+        logger.debug("Error finding " + noise + " in " + r.text)
+        raise e
 
 
 @checker.putnoise(1)
@@ -239,10 +250,14 @@ async def getnoise1(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
         raise MumbleException("Missing database entry from putnoise")
     cookie = await login(task, client, username, password, logger)
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
-    assert_in(noise, r.text, "noise missing from public chatroom")
+    try:
+        assert_in(noise, unescape(r.text), "noise missing from public chatroom")
+    except Exception as e:
+        logger.debug("Error finding " + noise + " in " + r.text)
+        raise e
     newUserCookie, username = await register(task, client, secrets.token_hex(32), logger)
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=newUserCookie)
-    assert_in(noise, r.text, "public chatroom preventing access to new user")
+    assert_in(noise, unescape(r.text), "public chatroom preventing access to new user")
 
 
 @checker.putnoise(2)
@@ -270,10 +285,14 @@ async def getnoise2(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
         raise MumbleException("Missing database entry from putnoise")
     cookie = await login(task, client, username, password, logger)
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
-    assert_in(noise, r.text, "noise missing from private chatroom")
+    try:
+        assert_in(noise, unescape(r.text), "noise missing from private chatroom")
+    except Exception as e:
+        logger.debug("Error finding " + noise + " in " + r.text)
+        raise e
     newUserCookie, username = await register(task, client, secrets.token_hex(32), logger)
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=newUserCookie)
-    assert_in(noise, r.text, "private chatroom preventing access to new user")
+    assert_in(noise, unescape(r.text), "private chatroom preventing access to new user")
 
 
 @checker.putnoise(3)
@@ -312,12 +331,16 @@ async def putnoise4(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain
 @checker.getnoise(4)
 async def getnoise4(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
     try:
-        username, password, message = await db.get("noise")
+        username, password, noise = await db.get("noise")
     except KeyError:
         raise MumbleException("Missing database entry from putnoise")
     cookie = await login(task, client, username, password, logger)
     r = await client.get(f"{getUrl(task)}/profile/{username}", cookies=cookie)
-    assert_in(message, r.text, "message missing from profile wall")
+    try:
+        assert_in(noise, unescape(r.text), "message missing from profile wall")
+    except Exception as e:
+        logger.debug("Error finding " + noise + " in " + r.text)
+        raise e
 
 
 @checker.putnoise(5)
@@ -350,7 +373,11 @@ async def getnoise5(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: C
         raise MumbleException("Missing database entry from putnoise")
     cookie = await login(task, client, username, password, logger)
     r = await client.get(f"{getUrl(task)}/profile/{partner}", cookies=cookie)
-    assert_in(noise, r.text, "noise missing from profile wall")
+    try:
+        assert_in(noise, unescape(r.text), "noise missing from profile wall")
+    except Exception as e:
+        logger.debug("Error finding " + noise + " in " + r.text)
+        raise e
 
 
 @checker.havoc(0)
@@ -496,8 +523,6 @@ async def xss_test(task, logger):
     if not browsers.get(os.getpid()):
         browsers[os.getpid()] = {"playwright": await async_playwright().start()}
         browsers[os.getpid()]["browser"] = await browsers[os.getpid()]["playwright"].chromium.launch()
-        browsers[os.getpid()]["context"] = await browsers[os.getpid()]["browser"].new_context()
-        browsers[os.getpid()]["page"] = await browsers[os.getpid()]["context"].new_page()
     browser = browsers[os.getpid()]["browser"]
     context = await browser.new_context()
     page = await context.new_page()
