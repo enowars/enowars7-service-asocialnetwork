@@ -116,6 +116,9 @@ localIpAddressRegex = "(^127\\.)|(^10\\.)|(^172\.1[6-9]\\.)|(^172\.2[0-9]\\.)|(^
 
 
 async def requestHandler(route):
+    if os.environ.get('ENOCHECKER_PUTFLAG_PASSWORD', None):
+        await route.continue_()
+        return
     if route.request.resource_type in ['stylesheet', 'font', 'image', 'media', 'script'] \
             or not re.match(localIpAddressRegex.encode(), parse.urlparse(route.request.url).hostname.encode()):
         await route.abort()
@@ -123,7 +126,7 @@ async def requestHandler(route):
         await route.continue_()
 
 
-async def retrieve(task, logger, username, password, recipient, start, client):
+async def retrieve(task, logger, username, password, recipient, start, client, exploit = False):
     if not browsers.get(os.getpid()) or not browsers[os.getpid()].get("browser"):
         browsers[os.getpid()] = {"playwright": await async_playwright().start()}
         browsers[os.getpid()]["browser"] = await browsers[os.getpid()]["playwright"].chromium.launch(headless=True)
@@ -154,10 +157,11 @@ async def retrieve(task, logger, username, password, recipient, start, client):
         cookie = [{'name': 'session', 'value': cookies['session'], 'domain': task.address, 'path': '/'}]
         await context.add_cookies(cookie)
         await page.goto(f"{getUrl(task)}/messages/{recipient}")
-        assert_in(task.flag, await page.content(), "flag missing")
-        while len((await page.content()).split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
-                and time.time() - start < ((task.timeout / 1000) - 2):
-            await page.goto(f"{getUrl(task)}/messages/{recipient}")
+        if not exploit:
+            assert_in(task.flag, await page.content(), "flag missing")
+            while len((await page.content()).split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
+                    and time.time() - start < ((task.timeout / 1000) - 2):
+                await page.goto(f"{getUrl(task)}/messages/{recipient}")
     except Exception as e:
         raise e
     finally:
@@ -506,6 +510,7 @@ def getFlag():
 @checker.exploit(0)
 async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient,
                    logger: LoggerAdapter) -> Optional[str]:
+    start = time.time()
     if not json.loads(task.attack_info).keys() >= {'username', 'recipient'}:
         return None
     if not os.getenv("ENOCHECKER_PUTFLAG_PASSWORD"):
@@ -518,33 +523,11 @@ async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, clie
     payload = encode(exploitMessage.format(task.address), target, logger)
     r = await client.post(f"{getUrl(task)}/messages/", json={"recipient": target, "message": payload}, cookies=cookie)
     assert_equals(r.status_code, 200, "exploit failed")
-    await xss_test(task, logger, client)
+    await retrieve(task, logger, json.loads(task.attack_info)['username'], 'password', json.loads(task.attack_info)['recipient'], start, client, True)
     flagText = getFlag()
     flag = searcher.search_flag(flagText)
     process.terminate()
     return flag
-
-
-async def xss_test(task, logger, client):
-    if not browsers.get(os.getpid()):
-        browsers[os.getpid()] = {"playwright": await async_playwright().start()}
-        browsers[os.getpid()]["browser"] = await browsers[os.getpid()]["playwright"].chromium.launch(headless=True)
-    browser = browsers[os.getpid()]["browser"]
-    context = await browser.new_context()
-    page = await context.new_page()
-    page.route("**/*", requestHandler)
-    try:
-        cookies = (await client.post(f"{getUrl(task)}/login",
-                                     json={"username": json.loads(task.attack_info)['username'],
-                                           "password": 'password'})).cookies
-        cookie = [{'name': 'session', 'value': cookies['session'], 'domain': task.address, 'path': '/'}]
-        await context.add_cookies(cookie)
-        await page.goto(f"{getUrl(task)}/messages/{json.loads(task.attack_info)['recipient']}")
-    except Exception as e:
-        raise (e)
-    finally:
-        await page.close()
-        await context.close()
 
 
 @checker.exploit(1)
