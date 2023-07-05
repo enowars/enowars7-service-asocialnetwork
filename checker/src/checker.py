@@ -24,6 +24,9 @@ import hashlib
 import os
 from faker import Faker
 from html import unescape
+from urllib import parse
+import re
+
 name_fake = Faker(
     locale=['ja-JP', 'en-US', 'de-DE', 'fr-FR', 'it-IT', 'es-ES', 'ru-RU', 'zh-CN', 'pt-BR', 'pl-PL', 'tr-TR', 'id-ID',
             'ar-EG', 'ko-KR', 'th-TH', 'cs-CZ', 'bg-BG', 'el-GR', 'fa-IR', 'fi-FI', 'he-IL', 'hi-IN', 'hu-HU', 'nl-NL',
@@ -61,6 +64,7 @@ async def register(task, client, password, logger):
 
 def generateNoise():
     return name_fake.text()
+
 
 async def login(task, client, username, password, logger):
     logger.debug(f"Logging in as {username}:{password}")
@@ -108,15 +112,15 @@ async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_d
 
 
 browsers = dict()
-target_url = None
+localIpAddressRegex = "(^127\\.)|(^10\\.)|(^172\.1[6-9]\\.)|(^172\.2[0-9]\\.)|(^172\.3[0-1]\\.)|(^192\.168\\.)"
 
 
-def requestHandler(route):
-    global target_url
-    if route.request.resource_type in ['stylesheet', 'font', 'image', 'media', 'script'] or not route.request.url.startswith(f"http://{target_url}"):
-        route.abort()
+async def requestHandler(route):
+    if route.request.resource_type in ['stylesheet', 'font', 'image', 'media', 'script'] \
+            or not re.match(localIpAddressRegex.encode(), parse.urlparse(route.request.url).hostname.encode()):
+        await route.abort()
     else:
-        route.continue_()
+        await route.continue_()
 
 
 async def retrieve(task, logger, username, password, recipient, start, client):
@@ -131,7 +135,7 @@ async def retrieve(task, logger, username, password, recipient, start, client):
     try:
         context = await browsers[os.getpid()]["browser"].new_context()
         page = await context.new_page()
-        page.route("**/*", requestHandler)
+        await page.route("**/*", requestHandler)
     except Exception as e:
         try:
             await browser.close()
@@ -145,7 +149,8 @@ async def retrieve(task, logger, username, password, recipient, start, client):
         browsers.pop(os.getpid(), None)
         raise e
     try:
-        cookies = (await client.post(f"{getUrl(task)}/login", json={"username": username, "password": password})).cookies
+        cookies = (
+            await client.post(f"{getUrl(task)}/login", json={"username": username, "password": password})).cookies
         cookie = [{'name': 'session', 'value': cookies['session'], 'domain': task.address, 'path': '/'}]
         await context.add_cookies(cookie)
         await page.goto(f"{getUrl(task)}/messages/{recipient}")
@@ -168,8 +173,6 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
     # event_loop.run_until_complete(retrieve(task, logger, username, password, recipient, start))
-    global target_url
-    target_url = task.address
     await retrieve(task, logger, username, password, recipient, start, client)
 
 
@@ -362,7 +365,7 @@ async def putnoise5(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain
     r = await client.get(f"{getUrl(task)}/profile/{partner}", cookies=cookie)
     assert_in(f"You are not friends with this user", r.text, "profile page visible to requested friends")
     r = await client.post(f"{getUrl(task)}/friends/requests",
-                          json={'userName': username, 'partner': partner, 'status': 'accept'}, cookies=cookie)
+                          json={'userName': username, 'partner': partner, 'status': 'accept'}, cookies=partnerCookie)
     assert_equals(r.status_code, 200, "accepting friend request failed")
     r = await client.post(f"{getUrl(task)}/profile/{partner}/wall", json={'message': noise}, cookies=partnerCookie)
     assert_equals(json.loads(r.text), {'message': 'Message posted', 'status': 200}, "posting to wall failed")
@@ -531,7 +534,9 @@ async def xss_test(task, logger, client):
     page = await context.new_page()
     page.route("**/*", requestHandler)
     try:
-        cookies = (await client.post(f"{getUrl(task)}/login", json={"username": json.loads(task.attack_info)['username'], "password": 'password'})).cookies
+        cookies = (await client.post(f"{getUrl(task)}/login",
+                                     json={"username": json.loads(task.attack_info)['username'],
+                                           "password": 'password'})).cookies
         cookie = [{'name': 'session', 'value': cookies['session'], 'domain': task.address, 'path': '/'}]
         await context.add_cookies(cookie)
         await page.goto(f"{getUrl(task)}/messages/{json.loads(task.attack_info)['recipient']}")
