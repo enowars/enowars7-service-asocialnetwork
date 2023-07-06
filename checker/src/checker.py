@@ -126,7 +126,7 @@ async def requestHandler(route):
         await route.continue_()
 
 
-async def retrieve(task, logger, username, password, recipient, start, client, exploit = False):
+async def retrieve(task, logger, username, password, recipient, start, client, exploit=False):
     if not browsers.get(os.getpid()) or not browsers[os.getpid()].get("browser"):
         browsers[os.getpid()] = {"playwright": await async_playwright().start()}
         browsers[os.getpid()]["browser"] = await browsers[os.getpid()]["playwright"].chromium.launch(headless=True)

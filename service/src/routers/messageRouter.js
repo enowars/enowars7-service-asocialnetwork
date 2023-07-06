@@ -20,7 +20,7 @@ router.use(async (req, res, next) => {
     next();
 });
 async function getMessages(user, partner){
-    const messages = await Message.find({ $or: [{ sender: user._id, recipient: partner._id}, { recipient: user._id, sender: partner._id }] }).populate('sender').populate('recipient');
+    const messages = await Message.find({ $or: [{ sender: user._id, recipient: partner._id}, { recipient: user._id, sender: partner._id }] }).populate('sender').populate('recipient').sort({createdAt: 'asc'});
     let filteredMessages = [];
     for(const message of messages) {
         let newMessage =
@@ -36,7 +36,7 @@ async function getMessages(user, partner){
     return filteredMessages;
 }
 async function getPartners(user){
-    const messages = await Message.find({ $or: [{ sender: user._id }, { recipient: user._id }] }).populate('sender').populate('recipient');
+    const messages = await Message.find({ $or: [{ sender: user._id }, { recipient: user._id }] }).populate('sender').populate('recipient').sort({createdAt: 'desc'});
     let filteredMessages = [];
     for(const message of messages) {
         let newMessage = {};
