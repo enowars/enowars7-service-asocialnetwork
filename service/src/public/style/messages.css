@@ -1,26 +1,11 @@
 body {
-    /*background-color: #2b2b2b;*/
     font-family: "Comic Sans MS", "Comic Sans", cursive;
 }
-
-nav {
-    /*background-color: #c79f00;*/
-}
-
 label {
     font-family: "Comic Sans MS", "Comic Sans", cursive;
 }
 nav a {
-    /*color: black;*/
     font-family: "Comic Sans MS", "Comic Sans", cursive;
-}
-.avatar {
-    /*border-radius: 50%;*/
-    height: 100px;
-    width: 100px;
-    object-fit: cover;
-    object-position: center;
-    margin-right: 1rem;
 }
 .btn-secondary {
     background-color: #c79f00;
@@ -40,7 +25,6 @@ nav a {
 }
 
 .message-partner {
-    /*background-color: #c79f00;*/
     padding: 5px;
     margin-bottom: 10px;
     font-weight: bold;
@@ -57,7 +41,6 @@ nav a {
     padding: 5px;
     margin-bottom: 5px;
     max-width: 70%;
-    /*border-radius: 10px;*/
     font-family: "Comic Sans MS", "Comic Sans", cursive;
     overflow-wrap: break-word;
 }
@@ -84,7 +67,6 @@ label {
 }
 
 input[type="text"] {
-    /*border-radius: 5px;*/
     border: none;
     padding: 5px;
     margin-bottom: 10px;
@@ -106,5 +88,4 @@ button {
 
 button:hover {
     background-color: #007bff;
-
 }

@@ -152,20 +152,20 @@ async def retrieve(task, logger, username, password, recipient, start, client, e
         browsers.pop(os.getpid(), None)
         raise e
     try:
-        cookies = (
-            await client.post(f"{getUrl(task)}/login", json={"username": username, "password": password})).cookies
+        cookies = (await client.post(f"{getUrl(task)}/login", json={"username": username, "password": password})).cookies
         cookie = [{'name': 'session', 'value': cookies['session'], 'domain': task.address, 'path': '/'}]
         await context.add_cookies(cookie)
         await page.goto(f"{getUrl(task)}/messages/{recipient}")
         if not exploit:
-            assert_in(task.flag, await page.content(), "flag missing")
-            while len((await page.content()).split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
+            content = await page.content()
+            assert_in(task.flag, content, "flag missing")
+            while len(content.split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
                     and time.time() - start < ((task.timeout / 1000) - 2):
                 await page.goto(f"{getUrl(task)}/messages/{recipient}")
+                content = await page.content()
     except Exception as e:
         raise e
     finally:
-        await page.close()
         await context.close()
 
 

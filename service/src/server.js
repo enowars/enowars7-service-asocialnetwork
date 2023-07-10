@@ -75,17 +75,17 @@ app.post('/register', async (req, res, next) => {
         next();
         return;
     }
-    if(req.body.username === '' || req.body.password === '' || req.body.confirmPassword === '') {
-        res.status(400);
-        res.page = 'register';
-        res.params = {error: 'Please fill in all fields'};
-        next();
-        return;
-    }
     if(req.body.username.length > 100 || req.body.password.length > 100 || req.body.confirmPassword.length > 100) {
         res.status(400);
         res.page = 'register';
         res.params = {error: 'Username and password must be less than 100 characters'};
+        next();
+        return;
+    }
+    if(req.body.password !== req.body.confirmPassword) {
+        res.status(400);
+        res.page = 'register';
+        res.params = {error: 'Passwords do not match'};
         next();
         return;
     }
@@ -95,13 +95,6 @@ app.post('/register', async (req, res, next) => {
             res.status(400);
             res.page = 'register';
             res.params = {error: 'Username already exists'};
-            next();
-            return;
-        }
-        if(req.body.password !== req.body.confirmPassword) {
-            res.status(400);
-            res.page = 'register';
-            res.params = {error: 'Passwords do not match'};
             next();
             return;
         }
@@ -160,11 +153,6 @@ app.post('/login', async (req, res, next) => {
             password: hash(password)
         }, {sessionId: newSessionId}, {new: true});
         if (user) {
-            let profile = await Profile.find({user: user._id});
-            if (!profile[0]) {
-                profile = new Profile({image: Math.floor(Math.random() * 50) + 1, user: user._id, wall: []});
-                await profile.save();
-            }
             res.clearCookie('session');
             res.cookie('session', user.sessionId, {maxAge: 900000, httpOnly: true});
             res.redirect('/');
@@ -223,7 +211,7 @@ async function cleanup(){
 }
 setInterval(async () => {
     await cleanup();
-}, 10000);
+}, 60000);
 
 app.listen(3000, () => {
     console.log("Listening on port 3000")
