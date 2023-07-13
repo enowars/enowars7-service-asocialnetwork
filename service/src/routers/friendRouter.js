@@ -37,15 +37,15 @@ router.get('/', async (req, res, next) => {
 });
 router.post('/requests/', async (req, res, next) => {
     try {
-        let partner = (await User.find({userName: req.body.partner}))[0];
-        let user = (await User.find({userName: req.body.userName}))[0];
-        if (user === undefined || partner === undefined) {
+        let partner = (await User.findOne({userName: req.body.partner}));
+        let user = (await User.findOne({userName: req.body.userName}));
+        if (!user || !partner) {
             res.status(400).send('User not found');
             return;
         }
-        let friend = (await Friend.find({$or:[{recipient: user._id, initiator: partner._id}, {initiator: user._id, recipient: partner._id}]}))[0];
+        let friend = (await Friend.findOne({$or:[{recipient: user._id, initiator: partner._id}, {initiator: user._id, recipient: partner._id}]}));
         if (req.body.status === 'accept') {
-            if (friend === undefined) {
+            if (!friend) {
                 res.status(400).send('Acceptance Request not found');
                 return;
             } else {
@@ -53,14 +53,14 @@ router.post('/requests/', async (req, res, next) => {
                 await friend.save();
             }
         } else if (req.body.status === 'reject' || req.body.status === 'cancel') {
-            if (friend === undefined) {
+            if (!friend) {
                 res.status(400).send('Rejection Request not found');
                 return;
             } else {
                 await Friend.deleteOne({_id: friend._id});
             }
         } else if (req.body.status === 'send') {
-            if (friend !== undefined) {
+            if (friend) {
                 res.status(400).send('Request already sent');
                 return;
             } else if(user.userName === partner.userName){

@@ -1,7 +1,6 @@
 let express = require('express');
 let router = express.Router();
 let Chatroom = require('../models/chatroom');
-let Message = require('../models/message');
 let User = require('../models/user');
 let Profile = require('../models/profile');
 let crypto = require('crypto');
@@ -14,36 +13,36 @@ router.use(async (req, res, next) => {
 });
 router.get('/:roomId', async (req, res, next) => {
     try{
-        let chatroom = await Chatroom.find({id: req.params.roomId});
-        if(chatroom.length === 0) {
+        let chatroom = await Chatroom.findOne({id: req.params.roomId});
+        if(!chatroom) {
             res.redirect('/');
             return;
         }
-        if(!chatroom[0].members.includes(req.user._id)) {
-            chatroom[0].members.push(req.user._id);
-            await chatroom[0].save();
+        if(!chatroom.members.includes(req.user._id)) {
+            chatroom.members.push(req.user._id);
+            await chatroom.save();
         }
-        for(let i = 0; i < chatroom[0].messages.length; i++) {
-            let author = await User.find({_id: chatroom[0].messages[i].author});
-            chatroom[0].messages[i].user = {userName: author[0].userName, avatar: '/assets/profile-pics/' + (await Profile.find({user: author[0]._id}))[0].image + '.jpg'};
+        for(let i = 0; i < chatroom.messages.length; i++) {
+            let author = await User.findById(chatroom.messages[i].author);
+            chatroom.messages[i].user = {userName: author.userName, avatar: '/assets/profile-pics/' + (await Profile.findOne({user: author._id})).image + '.jpg'};
         }
         res.page = 'chatroom';
-        if( chatroom[0].messages.length > 0) {
-            res.params = {chatroom: chatroom[0], lastMessage: chatroom[0].messages[chatroom[0].messages.length - 1].date.valueOf()};
+        if( chatroom.messages.length > 0) {
+            res.params = {chatroom: chatroom, lastMessage: chatroom.messages[chatroom.messages.length - 1].date.valueOf()};
         }
         else {
-            res.params = {chatroom: chatroom[0], lastMessage: 0};
+            res.params = {chatroom: chatroom, lastMessage: 0};
         }
         next();
     }
     catch(e) {
+        console.log(e);
         res.status(500).send('Internal server error');
         return;
     }
 });
 async function newMessagesAvailable(roomId, lastMessageDate){
-    let chatroom = await Chatroom.find({id: roomId});
-    chatroom = chatroom[0];
+    let chatroom = await Chatroom.findOne({id: roomId});
     if(!chatroom) {
         return false;
     }
@@ -53,20 +52,19 @@ async function newMessagesAvailable(roomId, lastMessageDate){
     return lastMessageDate.getTime() < chatroom.messages[chatroom.messages.length - 1].date.getTime()
 }
 async function getNewMessages(roomId, lastMessageDate) {
-    let chatroom = await Chatroom.find({id: roomId});
-    chatroom = chatroom[0];
+    let chatroom = await Chatroom.findOne({id: roomId});
     let newMessages = [];
     if(chatroom){
         for(let i = 0; i < chatroom.messages.length; i++) {
             if(chatroom.messages[i].date.getTime() > lastMessageDate.getTime()) {
-                let author = await User.find({_id: chatroom.messages[i].author});
+                let author = await User.findById(chatroom.messages[i].author);
                 let message = {
                     message: chatroom.messages[i].message,
                     author: chatroom.messages[i].author,
                     date: chatroom.messages[i].date,
                     user: {
-                        userName: author[0].userName,
-                        avatar: '/assets/profile-pics/' + (await Profile.find({user: author[0]._id}))[0].image + '.jpg'
+                        userName: author.userName,
+                        avatar: '/assets/profile-pics/' + (await Profile.find({user: author._id}))[0].image + '.jpg'
                     }
                 }
                 newMessages.push(message);
@@ -98,8 +96,7 @@ function waitUntilNewMessagesOrTimeout(callback, roomId, lastMessageDate) {
 }
 router.get('/:roomId/messages/:lastMessageTime', async (req, res) => {
     try{
-        let chatroom = await Chatroom.find({id: req.params.roomId});
-        chatroom = chatroom[0];
+        let chatroom = await Chatroom.findOne({id: req.params.roomId});
         if(!chatroom){
             res.status(400).send('Chatroom not found');
             return;
@@ -112,7 +109,7 @@ router.get('/:roomId/messages/:lastMessageTime', async (req, res) => {
         await chatroom.save();
         waitUntilNewMessagesOrTimeout(async function(newMessages) {
             // Return new messages to the client
-            let chatroom = (await Chatroom.find({id: req.params.roomId}))[0];
+            let chatroom = (await Chatroom.findOne({id: req.params.roomId}));
             if(!chatroom) {
                 return;
             }
@@ -123,14 +120,14 @@ router.get('/:roomId/messages/:lastMessageTime', async (req, res) => {
         }, req.params.roomId, new Date(Number.parseInt(req.params.lastMessageTime)));
     }
     catch(e) {
+        console.log(e);
         res.status(500).send('Internal server error');
         return;
     }
 });
 router.post('/', async (req, res) => {
     try{
-        let chatroom = await Chatroom.find({name: req.body.roomname});
-        chatroom = chatroom[0];
+        let chatroom = await Chatroom.findOne({id: crypto.createHash('sha256').update(req.body.roomname).digest('hex')});
         if(typeof req.body.roomname !== 'string'){
             res.status(400).send('Room Name must be a string');
             return;
@@ -168,14 +165,14 @@ router.post('/', async (req, res) => {
         }
     }
     catch(e) {
+        console.log(e);
         res.status(500).send('Internal server error');
         return;
     }
 });
 router.post('/:roomId/messages', async (req, res) => {
     try{
-        let chatroom = await Chatroom.find({id: req.params.roomId});
-        chatroom = chatroom[0];
+        let chatroom = await Chatroom.findOne({id: req.params.roomId});
         if(!chatroom) {
             res.send('Chatroom does not exist');
             return;
@@ -198,6 +195,7 @@ router.post('/:roomId/messages', async (req, res) => {
         res.redirect('/chatroom/' + req.params.roomId);
     }
     catch(e) {
+        console.log(e);
         res.status(500).send('Internal server error');
         return;
     }

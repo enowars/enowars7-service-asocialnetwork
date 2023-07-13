@@ -2,8 +2,6 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/user');
 const Message = require('../models/message');
-const Profile = require('../models/profile');
-const {query} = require("express");
 router.use(async (req, res, next) => {
     if(!req.user) {
         res.redirect('/login');
@@ -68,29 +66,27 @@ function fun2(a, b){
     return (decodeURIComponent(c));
 }
 
-
 router.post('/', async (req, res, next) => {
     try{
         if(!req.body.message) {
-            res.status(400).render('messages', {userName: await getUserNameById(req.user._id), new: true, partners: req.partners, messages: false, error: 'Message cannot be empty'});
+            res.status(400).render('messages', {userName: req.user.userName, new: true, partners: req.partners, messages: false, error: 'Message cannot be empty'});
             return;
         }
-        let recipient = (await User.findOne().byUserName(req.body.recipient))[0];
+        let recipient = (await User.findOne({userName: req.body.recipient}));
         if(!recipient) {
-            res.status(404).render('messages', {userName: await getUserNameById(req.user._id), new: true, partners: req.partners, messages: false, error: 'Recipient does not exist'});
+            res.status(404).render('messages', {userName: req.user.userName, new: true, partners: req.partners, messages: false, error: 'Recipient does not exist'});
             return;
         }
         if(req.user.userName === recipient.userName) {
-            res.status(400).render('messages', {userName: await getUserNameById(req.user._id), new: true, partners: req.partners, messages: false, error: 'You cannot send a message to yourself'});
+            res.status(400).render('messages', {userName: req.user.userName, new: true, partners: req.partners, messages: false, error: 'You cannot send a message to yourself'});
             return;
         }
         let tmp = "";
         try{
             tmp = fun2(req.body.message, req.body.recipient);
         }
-
         catch{
-            res.status(400).render('messages', {userName: await getUserNameById(req.user._id), new: true, partners: req.partners, messages: false, error: 'Message cannot be empty'});
+            res.status(400).render('messages', {userName: req.user.userName, new: true, partners: req.partners, messages: false, error: 'Message cannot be empty'});
             return;
         }
         let message = new Message({
@@ -111,16 +107,13 @@ router.post('/', async (req, res, next) => {
         return;
     }
 });
-async function getUserNameById(userId) {
-    return (await User.findById(userId)).userName;
-}
 router.get('/', async (req, res, next) => {
     res.params = {new: true, messages: false};
     next();
 });
 router.get('/:partner', async (req, res, next) => {
     try{
-        let partner = (await User.find({userName: req.params.partner}))[0];
+        let partner = (await User.findOne({userName: req.params.partner}));
         if(!partner) {
             res.status(404);
             res.params = {new: true, messages: false, error: 'Recipient does not exist'};
@@ -150,7 +143,7 @@ async function getUnreadMessages(user){
             break;
         }
     }
-    return {sender: (await User.find({_id: sender}))[0], text: unreadText};
+    return {sender: (await User.findById(sender)), text: unreadText};
 }
 router.use( async (req, res, next) => {
     res.page = 'messages';

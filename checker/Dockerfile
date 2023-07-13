@@ -10,12 +10,11 @@ RUN apt-get update
 RUN apt-get -y install google-chrome-stable
 
 WORKDIR /checker
-COPY ./src .
 RUN chown -R checker:checker /checker
 COPY requirements.txt .
 USER checker
 RUN python3 -m pip install -r requirements.txt
 RUN python3 -m playwright install
-
+COPY ./src .
 
 ENTRYPOINT [ "/home/checker/.local/bin/gunicorn", "-c", "gunicorn.conf.py", "checker:app" ]

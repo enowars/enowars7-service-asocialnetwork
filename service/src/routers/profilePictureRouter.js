@@ -8,20 +8,20 @@ router.get('/', async (req, res, next) => {
     }
     res.page = 'profilePicture';
     try{
-        let profile = await Profile.find({user: req.user._id});
-        profile = profile[0];
+        let profile = await Profile.findOne({user: req.user._id});
         res.params = {selected: profile.image};
         next();
     }
     catch(e) {
+        console.log(e);
         res.status(500).send('Internal server error');
         return;
     }
 });
 router.post('/', async (req, res) => {
     try{
-        let profile = await Profile.find({user: req.user._id});
-        if(!profile[0]) {
+        let profile = await Profile.findOne({user: req.user._id});
+        if(!profile) {
             profile = new Profile({image: req.query.pic, user: req.user._id});
             await profile.save();
         }
@@ -31,6 +31,7 @@ router.post('/', async (req, res) => {
         res.send('Profile picture updated');
     }
     catch(e) {
+        console.log(e);
         res.status(500).send('Internal server error');
         return;
     }

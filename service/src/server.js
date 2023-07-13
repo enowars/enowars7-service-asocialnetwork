@@ -27,12 +27,12 @@ app.use(async (req, res, next) => {
         return;
     }
     if(req.cookies.session !== undefined) {
-        let user = await User.find({sessionId: req.cookies.session});
-        if(user.length === 0 && req.url !== '/register' && req.url !== '/login') {
+        let user = await User.findOne({sessionId: req.cookies.session}).populate('userName');
+        if(!user && req.url !== '/register' && req.url !== '/login') {
             res.redirect('/register');
             return;
         }
-        req.user = user[0];
+        req.user = user;
     }
     next();
 });
@@ -48,12 +48,13 @@ app.get('/', async (req, res, next) => {
     }
     res.page = 'home';
     try{
-        let profile = await Profile.find({user: req.user._id});
+        let profile = await Profile.findOne({user: req.user._id});
         let rooms = await Chatroom.find({ $or: [{ public: true }, { members: req.user._id}] });
-        res.params = {userPic: profile[0].image, rooms: rooms};
+        res.params = {userPic: profile.image, rooms: rooms};
         next();
     }
     catch (e) {
+        console.log(e);
         res.status(500).send('Internal server error');
         return;
     }
@@ -90,8 +91,8 @@ app.post('/register', async (req, res, next) => {
         return;
     }
     try{
-        let user = await User.find({userName: req.body.username});
-        if(user.length > 0) {
+        let user = await User.findOne({userName: req.body.username});
+        if(user) {
             res.status(400);
             res.page = 'register';
             res.params = {error: 'Username already exists'};
@@ -115,6 +116,7 @@ app.post('/register', async (req, res, next) => {
         });
     }
     catch (e) {
+        console.log(e);
         res.status(500).send('Internal server error');
         return;
     }
@@ -164,6 +166,7 @@ app.post('/login', async (req, res, next) => {
         }
     }
     catch (e) {
+        console.log(e);
         res.status(500).send('Internal server error');
         return;
     }
@@ -211,7 +214,7 @@ async function cleanup(){
 }
 setInterval(async () => {
     await cleanup();
-}, 60000);
+}, 30000);
 
 app.listen(3000, () => {
     console.log("Listening on port 3000")
