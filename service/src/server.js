@@ -190,24 +190,11 @@ app.use((req, res, next) => {
 async function cleanup(){
     try{
         let users = await User.find( { createdAt : {"$lt" : new Date(Date.now() - 15 * 60 * 1000) } }, {_id: 1}).lean();
-        console.log("Cleaning up " + users.length + " users")
         await Chatroom.deleteMany( { createdAt : {"$lt" : new Date(Date.now() - 15 * 60 * 1000) }})
         await Profile.deleteMany({user: {$in: users}});
         await Friend.deleteMany({$or: [{initiator: {$in: users}}, {recipient: {$in: users}}]});
         await Message.deleteMany({$or: [{sender: {$in: users}}, {recipient: {$in: users}}]});
         await User.deleteMany( {_id : {"$in" : users } });
-        let rooms = await Chatroom.find({}).lean();
-        const bulkOperations = [];
-        for (let room of rooms) {
-          const updateOperation = {
-            updateOne: {
-              filter: { _id: room._id },
-              update: { $pull: { messages: { author: { $in: users } } } }
-            }
-          };
-          bulkOperations.push(updateOperation);
-        }
-        await Chatroom.bulkWrite(bulkOperations);
     }
     catch (e) {
         console.log(e);

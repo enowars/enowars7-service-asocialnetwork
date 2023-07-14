@@ -22,10 +22,6 @@ router.get('/:roomId', async (req, res, next) => {
             chatroom.members.push(req.user._id);
             await chatroom.save();
         }
-        for(let i = 0; i < chatroom.messages.length; i++) {
-            let author = await User.findById(chatroom.messages[i].author);
-            chatroom.messages[i].user = {userName: author.userName, avatar: '/assets/profile-pics/' + (await Profile.findOne({user: author._id})).image + '.jpg'};
-        }
         res.page = 'chatroom';
         if( chatroom.messages.length > 0) {
             res.params = {chatroom: chatroom, lastMessage: chatroom.messages[chatroom.messages.length - 1].date.valueOf()};
@@ -57,14 +53,13 @@ async function getNewMessages(roomId, lastMessageDate) {
     if(chatroom){
         for(let i = 0; i < chatroom.messages.length; i++) {
             if(chatroom.messages[i].date.getTime() > lastMessageDate.getTime()) {
-                let author = await User.findById(chatroom.messages[i].author).lean();
                 let message = {
                     message: chatroom.messages[i].message,
                     author: chatroom.messages[i].author,
                     date: chatroom.messages[i].date,
                     user: {
-                        userName: author.userName,
-                        avatar: '/assets/profile-pics/' + (await Profile.findOne({user: author._id}).lean()).image + '.jpg'
+                        userName: chatroom.messages[i].author.userName,
+                        avatar: '/assets/profile-pics/' + chatroom.messages[i].author.image +  '.jpg'
                     }
                 }
                 newMessages.push(message);
@@ -187,7 +182,7 @@ router.post('/:roomId/messages', async (req, res) => {
         }
         let message = {
             message: req.body.message,
-            author: req.user._id,
+            author: {userName: req.user.userName, image: (await Profile.findOne({user: req.user._id}).lean()).image},
             date: Date.now(),
         };
         chatroom.messages.push(message);

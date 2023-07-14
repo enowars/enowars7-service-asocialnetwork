@@ -2,7 +2,7 @@ let mongoose = require('mongoose');
 let Schema = mongoose.Schema;
 let chatroomSchema = new Schema({
     name: String,
-    messages: [{message: String, author:  {type: Schema.Types.ObjectId, ref: 'User'}, date: Date}],
+    messages: [{message: String, author: {userName: String, image: String}, date: Date}],
     users: [{type: Schema.Types.ObjectId, ref: 'User'}],
     members: [{type: Schema.Types.ObjectId, ref: 'User', index: true}],
     public: Boolean,

@@ -20,11 +20,11 @@
                             <%for(let i = 0; i < chatroom.messages.length; i++){%>
                                 <div class="message">
                                     <div class="author">
-                                        <%if(i === 0 || chatroom.messages[i].user.userName !== chatroom.messages[i-1].user.userName){%>
-                                            <img src="<%=chatroom.messages[i].user.avatar%>" alt="" class="profile-pic">
-                                            <span><%=chatroom.messages[i].user.userName%></span>:
+                                        <%if(i === 0 || chatroom.messages[i].author.userName !== chatroom.messages[i-1].author.userName){%>
+                                            <img src="/assets/profile-pics/<%=chatroom.messages[i].author.image%>.jpg" alt="" class="profile-pic">
+                                            <span><%=chatroom.messages[i].author.userName%></span>:
                                         <%} else{%>
-                                            <span style="display:none"><%=chatroom.messages[i].user.userName%></span>
+                                            <span style="display:none"><%=chatroom.messages[i].author.userName%></span>
                                         <%}%>
                                     </div>
                                     <p><%=chatroom.messages[i].message%></p>
