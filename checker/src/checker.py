@@ -153,6 +153,8 @@ async def retrieve(task, logger, username, password, recipient, start, client, e
         raise e
     try:
         cookies = (await client.post(f"{getUrl(task)}/login", json={"username": username, "password": password})).cookies
+        if not cookies['session']:
+            raise MumbleException("login failed")
         cookie = [{'name': 'session', 'value': cookies['session'], 'domain': task.address, 'path': '/'}]
         await context.add_cookies(cookie)
         await page.goto(f"{getUrl(task)}/messages/{recipient}")
@@ -164,6 +166,7 @@ async def retrieve(task, logger, username, password, recipient, start, client, e
                 await page.goto(f"{getUrl(task)}/messages/{recipient}")
                 content = await page.content()
     except Exception as e:
+        logger.error(f"Error: {repr(e)}")
         raise e
     finally:
         await context.close()
