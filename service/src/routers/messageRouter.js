@@ -18,7 +18,7 @@ router.use(async (req, res, next) => {
     next();
 });
 async function getMessages(user, partner){
-    const messages = await Message.find({ $or: [{ sender: user._id, recipient: partner._id}, { recipient: user._id, sender: partner._id }] }).populate('sender').populate('recipient').sort({createdAt: 'asc'});
+    const messages = await Message.find({ $or: [{ sender: user._id, recipient: partner._id}, { recipient: user._id, sender: partner._id }] }).populate('sender').populate('recipient').sort({createdAt: 'asc'}).lean();
     let filteredMessages = [];
     for(const message of messages) {
         let newMessage =
@@ -72,7 +72,7 @@ router.post('/', async (req, res, next) => {
             res.status(400).render('messages', {userName: req.user.userName, new: true, partners: req.partners, messages: false, error: 'Message cannot be empty'});
             return;
         }
-        let recipient = (await User.findOne({userName: req.body.recipient}));
+        let recipient = await User.findOne({userName: req.body.recipient}).lean();
         if(!recipient) {
             res.status(404).render('messages', {userName: req.user.userName, new: true, partners: req.partners, messages: false, error: 'Recipient does not exist'});
             return;
@@ -113,7 +113,7 @@ router.get('/', async (req, res, next) => {
 });
 router.get('/:partner', async (req, res, next) => {
     try{
-        let partner = (await User.findOne({userName: req.params.partner}));
+        let partner = await User.findOne({userName: req.params.partner}).lean();
         if(!partner) {
             res.status(404);
             res.params = {new: true, messages: false, error: 'Recipient does not exist'};
@@ -131,18 +131,12 @@ router.get('/:partner', async (req, res, next) => {
     }
 });
 async function getUnreadMessages(user){
-    const unreadMessages = await Message.find({read: false, recipient: user._id});
-    if(unreadMessages.length === 0) return false;
-    let sender = unreadMessages[0].sender;
-    let unreadText = "";
-    for(const message of unreadMessages) {
-        if(message.sender.toString() === sender.toString()) {
-            unreadText += message.message + '\n';
-            message.read = true;
-            message.save();
-            break;
-        }
-    }
+    const unreadMessage = await Message.findOne({read: false, recipient: user._id});
+    if(!unreadMessage) return false;
+    let sender = unreadMessage.sender;
+    let unreadText = unreadMessage.message + '\n';
+    unreadMessage.read = true;
+    await unreadMessage.save();
     return {sender: (await User.findById(sender)), text: unreadText};
 }
 router.use( async (req, res, next) => {

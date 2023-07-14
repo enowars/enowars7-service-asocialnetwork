@@ -10,14 +10,14 @@ router.get('/', async (req, res, next) => {
     }
     res.page = 'friends';
     try{
-        let friends = await Friend.find({ $or: [{ initiator: req.user._id, status: 'accepted' }, { recipient: req.user._id, status: 'accepted' }] }).populate('recipient').populate('initiator');
+        let friends = await Friend.find({ $or: [{ initiator: req.user._id, status: 'accepted' }, { recipient: req.user._id, status: 'accepted' }] }).populate('recipient').populate('initiator').lean();
         friends = friends.map(friend => {
             if(friend.recipient.userName === req.user.userName){
                 return friend.initiator;
             }
             return friend.recipient;
         });
-        let requests = await Friend.find({ $or: [{ initiator: req.user._id, status: 'pending' }, { recipient: req.user._id, status: 'pending' }] }).populate('recipient').populate('initiator');
+        let requests = await Friend.find({ $or: [{ initiator: req.user._id, status: 'pending' }, { recipient: req.user._id, status: 'pending' }] }).populate('recipient').populate('initiator').lean();
         requests = requests.map(request => {
             if(request.recipient.userName === req.user.userName){
                 request.initiator.status = 'received';
@@ -37,13 +37,13 @@ router.get('/', async (req, res, next) => {
 });
 router.post('/requests/', async (req, res, next) => {
     try {
-        let partner = (await User.findOne({userName: req.body.partner}));
-        let user = (await User.findOne({userName: req.body.userName}));
+        let partner = await User.findOne({userName: req.body.partner}).lean();
+        let user = await User.findOne({userName: req.body.userName}).lean();
         if (!user || !partner) {
             res.status(400).send('User not found');
             return;
         }
-        let friend = (await Friend.findOne({$or:[{recipient: user._id, initiator: partner._id}, {initiator: user._id, recipient: partner._id}]}));
+        let friend = await Friend.findOne({$or:[{recipient: user._id, initiator: partner._id}, {initiator: user._id, recipient: partner._id}]});
         if (req.body.status === 'accept') {
             if (!friend) {
                 res.status(400).send('Acceptance Request not found');
@@ -87,12 +87,12 @@ router.post('/requests/', async (req, res, next) => {
 router.use(async (req, res, next) => {
     try{
         res.params.friends = await Promise.all(res.params.friends.map(async (friend) => {
-            let profile = await Profile.findOne({user: friend._id});
+            let profile = await Profile.findOne({user: friend._id}).lean();
             friend.image = profile.image;
             return friend;
         }));
         res.params.requests = await Promise.all(res.params.requests.map(async (request) => {
-            let profile = await Profile.findOne({user: request._id});
+            let profile = await Profile.findOne({user: request._id}).lean();
             request.image = profile.image;
             return request;
         }));

@@ -7,14 +7,14 @@ const Friend = require('../models/friend');
 async function getWall(profile) {
     let wall = [].concat(profile.wall).reverse();
     for(let i = 0; i < wall.length; i++) {
-        wall[i].sender = (await User.findById(wall[i].sender));
-        wall[i].image = (await Profile.findOne({user: wall[i].sender._id})).image;
+        wall[i].sender = await User.findById(wall[i].sender).lean();
+        wall[i].image = (await Profile.findOne({user: wall[i].sender._id}).lean()).image;
     }
     return wall;
 }
 async function sendError(errorMessage, req, res){
-    let profile = await Profile.findOne({user: req.user._id});
-    let rooms = await Chatroom.find({members: req.user._id});
+    let profile = await Profile.findOne({user: req.user._id}).lean();
+    let rooms = await Chatroom.find({members: req.user._id}).lean();
     res.status(400).render('profile',{error: errorMessage, selected: profile.image, user: req.user, visitor: req.user, messages: await getWall(profile), rooms: rooms, userName: req.user.userName});
     return;
 }
@@ -28,8 +28,8 @@ router.use(async (req, res, next) => {
 });
 router.get('/', async (req, res, next) => {
     try{
-        let profile = await Profile.findOne({user: req.user._id});
-        res.params = {selected: profile.image, user: req.user, visitor: req.user, messages: await getWall(profile), rooms: await Chatroom.find({members: req.user._id})};
+        let profile = await Profile.findOne({user: req.user._id}).lean();
+        res.params = {selected: profile.image, user: req.user, visitor: req.user, messages: await getWall(profile), rooms: await Chatroom.find({members: req.user._id}).lean()};
         next();
     }
     catch(e) {
@@ -40,18 +40,18 @@ router.get('/', async (req, res, next) => {
 });
 router.get('/:userName', async (req, res, next) => {
     try{
-        let user = (await User.findOne({userName: req.params.userName}));
+        let user = await User.findOne({userName: req.params.userName}).lean();
         if(!user) {
             await sendError('User not found', req, res);
             return;
         }
-        let friend = await Friend.findOne({$or: [{initiator: req.user._id, recipient: user._id, status: "accepted"}, {initiator: user._id, recipient: req.user._id, status: "accepted"}]});
+        let friend = await Friend.findOne({$or: [{initiator: req.user._id, recipient: user._id, status: "accepted"}, {initiator: user._id, recipient: req.user._id, status: "accepted"}]}).lean();
         if(!friend && (req.user.userName !== req.params.userName)) {
             await sendError('You are not friends with this user', req, res);
             return;
         }
-        let profile = await Profile.findOne({user: user._id});
-        let rooms = await Chatroom.find({members: user._id});
+        let profile = await Profile.findOne({user: user._id}).lean();
+        let rooms = await Chatroom.find({members: user._id}).lean();
         res.params = {selected: profile.image, user: user, visitor: req.user, messages: await getWall(profile), rooms: rooms};
         next();
     }
@@ -63,7 +63,7 @@ router.get('/:userName', async (req, res, next) => {
 });
 router.post('/:userName/wall', async (req, res) => {
     try{
-        let user = (await User.findOne({userName: req.params.userName}));
+        let user = await User.findOne({userName: req.params.userName}).lean();
         if(!user) {
             res.render('profile', {error: 'User not found'});
             return;

@@ -5,8 +5,8 @@ services:
       context: .
       dockerfile: Dockerfile
     working_dir: /service/
-#    volumes:
-#      - ./src:/home/node/app
+    environment:
+      - NODE_ENV=production
     ports:
       - "3000:80"
     links:

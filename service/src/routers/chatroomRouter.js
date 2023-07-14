@@ -42,7 +42,7 @@ router.get('/:roomId', async (req, res, next) => {
     }
 });
 async function newMessagesAvailable(roomId, lastMessageDate){
-    let chatroom = await Chatroom.findOne({id: roomId});
+    let chatroom = await Chatroom.findOne({id: roomId}).lean();
     if(!chatroom) {
         return false;
     }
@@ -52,19 +52,19 @@ async function newMessagesAvailable(roomId, lastMessageDate){
     return lastMessageDate.getTime() < chatroom.messages[chatroom.messages.length - 1].date.getTime()
 }
 async function getNewMessages(roomId, lastMessageDate) {
-    let chatroom = await Chatroom.findOne({id: roomId});
+    let chatroom = await Chatroom.findOne({id: roomId}).lean();
     let newMessages = [];
     if(chatroom){
         for(let i = 0; i < chatroom.messages.length; i++) {
             if(chatroom.messages[i].date.getTime() > lastMessageDate.getTime()) {
-                let author = await User.findById(chatroom.messages[i].author);
+                let author = await User.findById(chatroom.messages[i].author).lean();
                 let message = {
                     message: chatroom.messages[i].message,
                     author: chatroom.messages[i].author,
                     date: chatroom.messages[i].date,
                     user: {
                         userName: author.userName,
-                        avatar: '/assets/profile-pics/' + (await Profile.find({user: author._id}))[0].image + '.jpg'
+                        avatar: '/assets/profile-pics/' + (await Profile.findOne({user: author._id}).lean()).image + '.jpg'
                     }
                 }
                 newMessages.push(message);
@@ -127,7 +127,7 @@ router.get('/:roomId/messages/:lastMessageTime', async (req, res) => {
 });
 router.post('/', async (req, res) => {
     try{
-        let chatroom = await Chatroom.findOne({id: crypto.createHash('sha256').update(req.body.roomname).digest('hex')});
+        let chatroom = await Chatroom.findOne({id: crypto.createHash('sha256').update(req.body.roomname).digest('hex')}).lean();
         if(typeof req.body.roomname !== 'string'){
             res.status(400).send('Room Name must be a string');
             return;

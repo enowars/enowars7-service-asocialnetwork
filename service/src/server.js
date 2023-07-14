@@ -20,14 +20,14 @@ const profilePicRouter = require('./routers/profilePictureRouter');
 const chatroomRouter = require('./routers/chatroomRouter');
 const friendRouter = require('./routers/friendRouter');
 app.use(cookieParser());
-
+app.use(express.static(__dirname + '/public'));
 app.use(async (req, res, next) => {
     if(req.method === 'POST' && (req.url === '/register' || req.url === '/login')) {
         next();
         return;
     }
     if(req.cookies.session !== undefined) {
-        let user = await User.findOne({sessionId: req.cookies.session}).populate('userName');
+        let user = await User.findOne({sessionId: req.cookies.session}).populate('userName').lean();
         if(!user && req.url !== '/register' && req.url !== '/login') {
             res.redirect('/register');
             return;
@@ -48,8 +48,8 @@ app.get('/', async (req, res, next) => {
     }
     res.page = 'home';
     try{
-        let profile = await Profile.findOne({user: req.user._id});
-        let rooms = await Chatroom.find({ $or: [{ public: true }, { members: req.user._id}] });
+        let profile = await Profile.findOne({user: req.user._id}).lean();
+        let rooms = await Chatroom.find({ $or: [{ public: true }, { members: req.user._id}] }).lean();
         res.params = {userPic: profile.image, rooms: rooms};
         next();
     }
@@ -91,7 +91,7 @@ app.post('/register', async (req, res, next) => {
         return;
     }
     try{
-        let user = await User.findOne({userName: req.body.username});
+        let user = await User.findOne({userName: req.body.username}).lean();
         if(user) {
             res.status(400);
             res.page = 'register';
@@ -189,12 +189,14 @@ app.use((req, res, next) => {
 });
 async function cleanup(){
     try{
-        let users = await User.find( { createdAt : {"$lt" : new Date(Date.now() - 60 * 60 * 1000) } }, {_id: 1});
-        await Chatroom.deleteMany( { createdAt : {"$lt" : new Date(Date.now() - 60 * 60 * 1000) }})
+        let users = await User.find( { createdAt : {"$lt" : new Date(Date.now() - 15 * 60 * 1000) } }, {_id: 1}).lean();
+        console.log("Cleaning up " + users.length + " users")
+        await Chatroom.deleteMany( { createdAt : {"$lt" : new Date(Date.now() - 15 * 60 * 1000) }})
         await Profile.deleteMany({user: {$in: users}});
         await Friend.deleteMany({$or: [{initiator: {$in: users}}, {recipient: {$in: users}}]});
         await Message.deleteMany({$or: [{sender: {$in: users}}, {recipient: {$in: users}}]});
-        let rooms = await Chatroom.find({});
+        await User.deleteMany( {_id : {"$in" : users } });
+        let rooms = await Chatroom.find({}).lean();
         const bulkOperations = [];
         for (let room of rooms) {
           const updateOperation = {
@@ -206,7 +208,6 @@ async function cleanup(){
           bulkOperations.push(updateOperation);
         }
         await Chatroom.bulkWrite(bulkOperations);
-        await User.deleteMany( {_id : {"$in" : users } });
     }
     catch (e) {
         console.log(e);

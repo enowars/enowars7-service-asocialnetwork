@@ -3,5 +3,3 @@ uvicorn
 gunicorn
 faker
 playwright
-enochecker_test
-py-spy

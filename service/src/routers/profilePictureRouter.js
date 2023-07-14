@@ -8,7 +8,7 @@ router.get('/', async (req, res, next) => {
     }
     res.page = 'profilePicture';
     try{
-        let profile = await Profile.findOne({user: req.user._id});
+        let profile = await Profile.findOne({user: req.user._id}).lean();
         res.params = {selected: profile.image};
         next();
     }
@@ -20,14 +20,7 @@ router.get('/', async (req, res, next) => {
 });
 router.post('/', async (req, res) => {
     try{
-        let profile = await Profile.findOne({user: req.user._id});
-        if(!profile) {
-            profile = new Profile({image: req.query.pic, user: req.user._id});
-            await profile.save();
-        }
-        else {
-            await Profile.findOneAndUpdate({user: req.user._id}, {image: req.query.pic}, {new: true});
-        }
+        await Profile.findOneAndUpdate({user: req.user._id}, {image: req.query.pic}, {new: true});
         res.send('Profile picture updated');
     }
     catch(e) {
