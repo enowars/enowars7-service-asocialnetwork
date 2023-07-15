@@ -34,9 +34,9 @@
                 <% messages.forEach(message => { %>
                         <div>
                             <% if(message.sender.userName === userName){%>
-                                <div class="message sent"><%= message.text%> <%= message.createdAt%></div>
+                                <div class="message sent"><%= message.message%> <%= message.createdAt.toLocaleString()%></div>
                             <%}else{%>
-                                <div class="message received"><%= message.text%> <%= message.createdAt%></div>
+                                <div class="message received"><%= message.message%> <%= message.createdAt.toLocaleString()%></div>
                             <%}%>
                         </div>
                 <% }); %>

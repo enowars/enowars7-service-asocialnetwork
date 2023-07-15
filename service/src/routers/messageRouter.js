@@ -17,24 +17,8 @@ router.use(async (req, res, next) => {
     }
     next();
 });
-async function getMessages(user, partner){
-    const messages = await Message.find({ $or: [{ sender: user._id, recipient: partner._id}, { recipient: user._id, sender: partner._id }] }).populate('sender').populate('recipient').sort({createdAt: 'asc'}).lean();
-    let filteredMessages = [];
-    for(const message of messages) {
-        let newMessage =
-            {
-                text:     message.message,
-                createdAt:   message.createdAt.toLocaleString(),
-                sender:      message.sender,
-                recipient:   message.recipient,
-                id: String(message._id)
-            };
-        filteredMessages.push(newMessage);
-    }
-    return filteredMessages;
-}
 async function getPartners(user){
-    const messages = await Message.find({ $or: [{ sender: user._id }, { recipient: user._id }] }).populate('sender').populate('recipient').sort({createdAt: 'desc'});
+    const messages = await Message.find({ $or: [{ sender: user._id }, { recipient: user._id }] }).populate('sender').populate('recipient').sort({createdAt: 'desc'}).lean();
     let filteredMessages = [];
     for(const message of messages) {
         let newMessage = {};
@@ -95,7 +79,7 @@ router.post('/', async (req, res, next) => {
             message: tmp
         });
         message.save().then(async () => {
-            let messages = await getMessages(req.user, recipient);
+            let messages = await Message.find({ $or: [{ sender: req.user._id, recipient: recipient._id}, { recipient: req.user._id, sender: recipient._id }] }).populate('sender').sort({createdAt: 'asc'}).lean();
             req.partners = await getPartners(req.user);
             res.params = {new: false, partner: recipient.userName, messages: messages};
             next();
@@ -120,7 +104,7 @@ router.get('/:partner', async (req, res, next) => {
             next();
             return;
         }
-        let messages = await getMessages(req.user, partner);
+        let messages = await Message.find({ $or: [{ sender: req.user._id, recipient: partner._id}, { recipient: req.user._id, sender: partner._id }] }).populate('sender').sort({createdAt: 'asc'}).lean();
         res.params = {new: false, partner: req.params.partner, messages: messages};
         next();
     }
@@ -131,13 +115,11 @@ router.get('/:partner', async (req, res, next) => {
     }
 });
 async function getUnreadMessages(user){
-    const unreadMessage = await Message.findOne({read: false, recipient: user._id});
+    const unreadMessage = await Message.findOneAndUpdate({read: false, recipient: user._id}, {read: true}, {new: false}).lean();
     if(!unreadMessage) return false;
     let sender = unreadMessage.sender;
     let unreadText = unreadMessage.message + '\n';
-    unreadMessage.read = true;
-    await unreadMessage.save();
-    return {sender: (await User.findById(sender)), text: unreadText};
+    return {sender: (await User.findById(sender).lean()), text: unreadText};
 }
 router.use( async (req, res, next) => {
     res.page = 'messages';

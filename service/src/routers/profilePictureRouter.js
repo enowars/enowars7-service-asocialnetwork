@@ -20,7 +20,7 @@ router.get('/', async (req, res, next) => {
 });
 router.post('/', async (req, res) => {
     try{
-        await Profile.findOneAndUpdate({user: req.user._id}, {image: req.query.pic}, {new: true});
+        await Profile.findOneAndUpdate({user: req.user._id}, {image: req.query.pic}, {new: false}).lean();
         res.send('Profile picture updated');
     }
     catch(e) {

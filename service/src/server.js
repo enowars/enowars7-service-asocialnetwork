@@ -27,7 +27,7 @@ app.use(async (req, res, next) => {
         return;
     }
     if(req.cookies.session !== undefined) {
-        let user = await User.findOne({sessionId: req.cookies.session}).populate('userName').lean();
+        let user = await User.findOne({sessionId: req.cookies.session}).lean();
         if(!user && req.url !== '/register' && req.url !== '/login') {
             res.redirect('/register');
             return;
@@ -153,10 +153,10 @@ app.post('/login', async (req, res, next) => {
         let user = await User.findOneAndUpdate({
             userName: userName,
             password: hash(password)
-        }, {sessionId: newSessionId}, {new: true});
+        }, {sessionId: newSessionId}, {new: false}).lean();
         if (user) {
             res.clearCookie('session');
-            res.cookie('session', user.sessionId, {maxAge: 900000, httpOnly: true});
+            res.cookie('session', newSessionId, {maxAge: 900000, httpOnly: true});
             res.redirect('/');
         } else {
             res.page = 'login';

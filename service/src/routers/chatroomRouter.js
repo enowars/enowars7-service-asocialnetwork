@@ -1,7 +1,6 @@
 let express = require('express');
 let router = express.Router();
 let Chatroom = require('../models/chatroom');
-let User = require('../models/user');
 let Profile = require('../models/profile');
 let crypto = require('crypto');
 router.use(async (req, res, next) => {

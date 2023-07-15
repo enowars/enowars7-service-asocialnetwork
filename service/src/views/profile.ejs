@@ -61,12 +61,12 @@
                             <div class="message">
                                 <div class="row">
                                     <div class="col-1">
-                                        <img src="/assets/profile-pics/<%= messages[i].image%>.jpg" class="wall-profile-pic" alt="Profile Picture">
+                                        <img src="/assets/profile-pics/<%= messages[i].author.image%>.jpg" class="wall-profile-pic" alt="Profile Picture">
                                     </div>
                                     <div class="col-11">
                                         <div class="row">
                                             <div class="col-6">
-                                                <h3><%= messages[i].sender.userName %></h3>
+                                                <h3><%= messages[i].author.userName %></h3>
                                             </div>
                                             <div class="message-date">
                                                 <h4><%= messages[i].date.toLocaleTimeString() + ' ' + messages[i].date.toLocaleDateString() %></h4>

@@ -3,7 +3,7 @@ const profileSchema = new mongoose.Schema({
     user: { type: mongoose.Types.ObjectId, ref: 'User' },
     image: { type: String, required: true },
     wall: [{
-        sender: { type: mongoose.Types.ObjectId, ref: 'User' },
+        author: {userName: String, image: String},
         message: { type: String, required: true },
         date: { type: Date, default: Date.now }
     }]

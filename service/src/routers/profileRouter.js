@@ -4,18 +4,10 @@ const Profile = require('../models/profile');
 const User = require('../models/user');
 const Chatroom = require('../models/chatroom');
 const Friend = require('../models/friend');
-async function getWall(profile) {
-    let wall = [].concat(profile.wall).reverse();
-    for(let i = 0; i < wall.length; i++) {
-        wall[i].sender = await User.findById(wall[i].sender).lean();
-        wall[i].image = (await Profile.findOne({user: wall[i].sender._id}).lean()).image;
-    }
-    return wall;
-}
 async function sendError(errorMessage, req, res){
     let profile = await Profile.findOne({user: req.user._id}).lean();
     let rooms = await Chatroom.find({members: req.user._id}).lean();
-    res.status(400).render('profile',{error: errorMessage, selected: profile.image, user: req.user, visitor: req.user, messages: await getWall(profile), rooms: rooms, userName: req.user.userName});
+    res.status(400).render('profile',{error: errorMessage, selected: profile.image, user: req.user, visitor: req.user, messages: [].concat(profile.wall).reverse(), rooms: rooms, userName: req.user.userName});
     return;
 }
 router.use(async (req, res, next) => {
@@ -29,7 +21,7 @@ router.use(async (req, res, next) => {
 router.get('/', async (req, res, next) => {
     try{
         let profile = await Profile.findOne({user: req.user._id}).lean();
-        res.params = {selected: profile.image, user: req.user, visitor: req.user, messages: await getWall(profile), rooms: await Chatroom.find({members: req.user._id}).lean()};
+        res.params = {selected: profile.image, user: req.user, visitor: req.user, messages: [].concat(profile.wall).reverse(), rooms: await Chatroom.find({members: req.user._id}).lean()};
         next();
     }
     catch(e) {
@@ -52,7 +44,7 @@ router.get('/:userName', async (req, res, next) => {
         }
         let profile = await Profile.findOne({user: user._id}).lean();
         let rooms = await Chatroom.find({members: user._id}).lean();
-        res.params = {selected: profile.image, user: user, visitor: req.user, messages: await getWall(profile), rooms: rooms};
+        res.params = {selected: profile.image, user: user, visitor: req.user, messages: [].concat(profile.wall).reverse(), rooms: rooms};
         next();
     }
     catch(e) {
@@ -77,7 +69,8 @@ router.post('/:userName/wall', async (req, res) => {
             return;
         }
         let profile = await Profile.findOne({user: user._id});
-        profile.wall.push({sender: req.user._id, message: req.body.message});
+        let image = (await Profile.findOne({user: req.user._id}).lean()).image;
+        profile.wall.push({author: {userName: req.user.userName, image: image}, message: req.body.message});
         await profile.save();
         res.send({message : 'Message posted', status: 200})
     }
