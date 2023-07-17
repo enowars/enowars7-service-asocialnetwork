@@ -202,7 +202,7 @@ async function cleanup(){
 }
 setInterval(async () => {
     await cleanup();
-}, 30000);
+}, 60000);
 
 app.listen(3000, () => {
     console.log("Listening on port 3000")
