@@ -113,14 +113,16 @@ async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_d
 
 browsers = dict()
 localIpAddressRegex = "(^127\\.)|(^10\\.)|(^172\.1[6-9]\\.)|(^172\.2[0-9]\\.)|(^172\.3[0-1]\\.)|(^192\.168\\.)"
-
+gLogger = None
 
 async def requestHandler(route):
     if os.environ.get('ENOCHECKER_PUTFLAG_PASSWORD', None):
         await route.continue_()
         return
-    if route.request.resource_type in ['stylesheet', 'font', 'image', 'media', 'script'] \
-            or not re.match(localIpAddressRegex.encode(), parse.urlparse(route.request.url).hostname.encode()):
+    if route.request.resource_type in ['stylesheet', 'font', 'image', 'media', 'script']:
+        await route.abort()
+    elif re.match(localIpAddressRegex.encode(), parse.urlparse(route.request.url).hostname.encode()):
+        gLogger.debug(f"Aborting request to {route.request.url}")
         await route.abort()
     else:
         await route.continue_()
@@ -158,13 +160,14 @@ async def retrieve(task, logger, username, password, recipient, start, client, e
         cookie = [{'name': 'session', 'value': cookies['session'], 'domain': task.address, 'path': '/'}]
         await context.add_cookies(cookie)
         await page.goto(f"{getUrl(task)}/messages/{recipient}")
+        content = await page.content()
         if not exploit:
-            content = await page.content()
             assert_in(task.flag, content, "flag missing")
-            while len(content.split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
-                    and time.time() - start < ((task.timeout / 1000) - 2):
-                await page.goto(f"{getUrl(task)}/messages/{recipient}")
-                content = await page.content()
+        while len(content.split('<div class="modal-body" style="white-space: pre-line">')) > 1 \
+                and time.time() - start < ((task.timeout / 1000) - 2):
+            logger.debug(content.split('<div class="modal-body" style="white-space: pre-line">')[1].split('</div>')[0])
+            await page.goto(f"{getUrl(task)}/messages/{recipient}")
+            content = await page.content()
     except Exception as e:
         logger.error(f"Error: {repr(e)}")
         raise e
@@ -180,6 +183,8 @@ async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: Cha
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
     # event_loop.run_until_complete(retrieve(task, logger, username, password, recipient, start))
+    global gLogger
+    gLogger = logger
     await retrieve(task, logger, username, password, recipient, start, client)
 
 
