@@ -16,6 +16,7 @@ services:
      - ENOCHECKER_PUTFLAG_PASSWORD=${ENOCHECKER_PUTFLAG_PASSWORD}
     mem_limit: 2G
     memswap_limit: 3G
+    restart: unless-stopped
     ulimits:
       core:
         soft: 0
@@ -34,6 +35,7 @@ services:
     command: mongod --port 27018
     mem_limit: 1G
     memswap_limit: 2G
+    restart: unless-stopped
     ulimits:
       core:
         soft: 0

@@ -11,8 +11,10 @@ services:
       - "3000:80"
     links:
       - asocialnetwork-service-mongo
+    restart: unless-stopped
   asocialnetwork-service-mongo:
     container_name: asocialnetwork-service-mongo
     image: mongo
     volumes:
       - ./data:/data/db
+    restart: unless-stopped
