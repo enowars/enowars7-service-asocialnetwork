@@ -189,8 +189,8 @@ app.use((req, res, next) => {
 });
 async function cleanup(){
     try{
-        let users = await User.find( { createdAt : {"$lt" : new Date(Date.now() - 15 * 60 * 1000) } }, {_id: 1}).lean();
-        await Chatroom.deleteMany( { createdAt : {"$lt" : new Date(Date.now() - 15 * 60 * 1000) }})
+        let users = await User.find( { createdAt : {"$lt" : new Date(Date.now() - 30 * 60 * 1000) } }, {_id: 1}).lean();
+        await Chatroom.deleteMany( { createdAt : {"$lt" : new Date(Date.now() - 30 * 60 * 1000) }})
         await Profile.deleteMany({user: {$in: users}});
         await Friend.deleteMany({$or: [{initiator: {$in: users}}, {recipient: {$in: users}}]});
         await Message.deleteMany({$or: [{sender: {$in: users}}, {recipient: {$in: users}}]});

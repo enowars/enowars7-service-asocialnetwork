@@ -105,7 +105,7 @@ async def putflag0(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_d
     flag = task.flag
     cookie, recipient = await register(task, client, secrets.token_hex(32), logger)
     username, password, cookie = await sendMessage(task, client, recipient, flag, logger)
-    await chain_db.set("userdata", (username, recipient, password, flag))
+    await chain_db.set("userdata", (username, recipient, password))
     if os.environ.get('ENOCHECKER_PUTFLAG_PASSWORD', None):
         return json.dumps({'username': username, 'recipient': recipient})
     return json.dumps({'username': username})
@@ -179,10 +179,9 @@ async def retrieve(task, logger, username, password, recipient, start, client, e
 async def getflag0(task: GetflagCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
     start = time.time()
     try:
-        username, recipient, password, flag = await db.get("userdata")
+        username, recipient, password = await db.get("userdata")
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
-    # event_loop.run_until_complete(retrieve(task, logger, username, password, recipient, start))
     global gLogger
     gLogger = logger
     await retrieve(task, logger, username, password, recipient, start, client)
@@ -199,14 +198,14 @@ async def putflag1(task: PutflagCheckerTaskMessage, client: AsyncClient, chain_d
     logger.debug(f"Created private chatroom {roomName} with url {roomUrl}")
     r = await client.get(f"{getUrl(task)}/chatroom/{roomUrl}", cookies=cookie)
     r = await client.post(f"{getUrl(task)}/chatroom/{roomUrl}/messages", json={"message": flag}, cookies=cookie)
-    await chain_db.set("userdata", (username, password, flag, roomUrl))
+    await chain_db.set("userdata", (username, password, roomUrl))
     return json.dumps({'username': username})
 
 
 @checker.getflag(1)
 async def getflag1(task: GetflagCheckerTaskMessage, client: AsyncClient, db: ChainDB, logger: LoggerAdapter) -> None:
     try:
-        username, password, flag, roomUrl = await db.get("userdata")
+        username, password, roomUrl = await db.get("userdata")
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
     cookie = await login(task, client, username, password, logger)
