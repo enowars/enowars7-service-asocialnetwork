@@ -41,10 +41,13 @@ router.post('/requests/', async (req, res, next) => {
             res.status(400).send('User not found')
             return
         }
-        let friend = await Friend.findOne({ $or: [{ recipient: user._id, initiator: partner._id }, { initiator: user._id, recipient: partner._id }] })
+        let friend = await Friend.findOne({ $or: [{ recipient: user._id, initiator: partner._id }, { initiator: user._id, recipient: partner._id }] }).populate('recipient').populate('initiator')
         if (req.body.status === 'accept') {
             if (!friend) {
                 res.status(400).send('Acceptance Request not found')
+                return
+            } else if (friend.initiator.userName === req.user.userName){
+                res.status(400).send('You cannot accept this request')
                 return
             } else {
                 friend.status = 'accepted'
@@ -63,6 +66,9 @@ router.post('/requests/', async (req, res, next) => {
                 return
             } else if (user.userName === partner.userName) {
                 res.status(400).send('You cannot send a friend request to yourself')
+                return
+            } else if(req.user.userName !== user.userName) {
+                res.status(400).send('You cannot send a friend request on behalf of another user')
                 return
             } else {
                 friend = new Friend({
