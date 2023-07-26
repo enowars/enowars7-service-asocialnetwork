@@ -70,7 +70,6 @@ app.get('/register', (req, res, next) => {
     next()
 })
 app.post('/register', async (req, res, next) => {
-    console.log(req.body)
     if (!req.body.username || !req.body.password || !req.body.confirmPassword) {
         res.status(400)
         res.page = 'register'
@@ -100,21 +99,27 @@ app.post('/register', async (req, res, next) => {
         next()
         return
     }
-    const sessionId = await generateSessionId()
-    const userName = req.body.username
-    const password = req.body.password
-    user = new User({
-        sessionId,
-        userName,
-        password: hash(password)
-    })
-    const profile = new Profile({ image: Math.floor(Math.random() * 50) + 1, user: user._id, wall: [] })
-    await profile.save()
-    user.save().then(() => {
-        res.clearCookie('session')
-        res.cookie('session', sessionId, { maxAge: 900000, httpOnly: true })
-        res.redirect('/')
-    })
+    try {
+        const sessionId = await generateSessionId()
+        const userName = req.body.username
+        const password = req.body.password
+        user = new User({
+            sessionId,
+            userName,
+            password: hash(password)
+        })
+        const profile = new Profile({image: Math.floor(Math.random() * 50) + 1, user: user._id, wall: []})
+        await profile.save()
+        user.save().then(() => {
+            res.clearCookie('session')
+            res.cookie('session', sessionId, {maxAge: 900000, httpOnly: true})
+            res.redirect('/')
+        })
+    } catch (e){
+        console.log(e)
+        res.status(500).send('Internal server error')
+        return
+    }
 })
 async function generateSessionId () {
     return new Promise((resolve, reject) => {
@@ -198,11 +203,6 @@ async function cleanup () {
 setInterval(async () => {
     await cleanup()
 }, 60000)
-
-app.use((err, req, res ,next) => {
-    console.log(err)
-    res.status(500).send('Internal server error')
-});
 
 app.listen(3000, () => {
     console.log('Listening on port 3000')
