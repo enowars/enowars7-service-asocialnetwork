@@ -91,15 +91,15 @@ app.post('/register', async (req, res, next) => {
         next()
         return
     }
-    let user = await User.findOne({ userName: req.body.username }).lean()
-    if (user) {
-        res.status(400)
-        res.page = 'register'
-        res.params = { error: 'Username already exists' }
-        next()
-        return
-    }
     try {
+        let user = await User.findOne({ userName: req.body.username }).lean()
+        if (user) {
+            res.status(400)
+            res.page = 'register'
+            res.params = { error: 'Username already exists' }
+            next()
+            return
+        }
         const sessionId = await generateSessionId()
         const userName = req.body.username
         const password = req.body.password
@@ -108,14 +108,15 @@ app.post('/register', async (req, res, next) => {
             userName,
             password: hash(password)
         })
-        const profile = new Profile({image: Math.floor(Math.random() * 50) + 1, user: user._id, wall: []})
+        const profile = new Profile({ image: Math.floor(Math.random() * 50) + 1, user: user._id, wall: [] })
         await profile.save()
         user.save().then(() => {
             res.clearCookie('session')
-            res.cookie('session', sessionId, {maxAge: 900000, httpOnly: true})
+            res.cookie('session', sessionId, { maxAge: 900000, httpOnly: true })
             res.redirect('/')
         })
-    } catch (e){
+    }
+    catch (e){
         console.log(e)
         res.status(500).send('Internal server error')
         return
