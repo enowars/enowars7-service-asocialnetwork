@@ -121,9 +121,6 @@ async def requestHandler(route):
         return
     if route.request.resource_type in ['stylesheet', 'font', 'image', 'media', 'script']:
         await route.abort()
-    elif re.match(localIpAddressRegex.encode(), parse.urlparse(route.request.url).hostname.encode()):
-        gLogger.debug(f"Aborting request to {route.request.url}")
-        await route.abort()
     else:
         await route.continue_()
 

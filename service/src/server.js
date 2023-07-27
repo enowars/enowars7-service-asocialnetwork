@@ -5,7 +5,7 @@ const ejs = require('ejs')
 const crypto = require('crypto')
 const { join } = require('path')
 mongoose.connect('mongodb://asocialnetwork-service-mongo:27017/prod')
-app.use(express.urlencoded({ extended: true }))
+app.use(express.urlencoded({ extended: false }))
 app.use(express.json())
 app.set('views', join(__dirname, '/views'))
 app.set('view engine', 'ejs')
@@ -116,7 +116,7 @@ app.post('/register', async (req, res, next) => {
             res.redirect('/')
         })
     }
-    catch (e) {
+    catch (e){
         console.log(e)
         res.status(500).send('Internal server error')
         return
